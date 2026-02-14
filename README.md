@@ -1,73 +1,142 @@
-# React + TypeScript + Vite
+# Tuon
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web-based application designed to streamline the process of checking multiple-choice examinations through Optical Mark Recognition (OMR) technology. The system automates the detection, extraction, and evaluation of shaded answers from scanned answer sheets, eliminating the need for manual checking.
 
-Currently, two official plugins are available:
+<!-- FOR TESTING -->
+# ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Exam Paper Scanner**: Students can submit their thesis drafts for review
+- **Result Processing**: Advisers can highlight and comment on specific sections of the document
+- **Exam Analytics**: Organize and track feedback from reviewers
+- **Feedback Management**: Organize and track feedback from reviewers
+- **Notification Alert**: Organize and track feedback from reviewers
+- **User Roles**: Different access levels for students and advisers
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Authentication**: Secure login with Google OAuth and email/password
+- **Real-time Updates**: Live updates using Supabase real-time subscriptions
 
-## React Compiler
+## 🚀 Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React Vite with App Router, React 18, TypeScript
+- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **Authentication**: Supabase Auth with Google OAuth
+- **Deployment**: Vercel
 
-## Expanding the ESLint configuration
+## 📋 Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Before you begin, ensure you have:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js 18+ installed
+- A Supabase account and project
+- Git installed on your machine
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 🛠️ Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ja-varron/wild-rift.git
+   cd wild-rift
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+3. **Environment Setup**
+   Create a `.env.local` file in the root directory with the following variables:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🏃‍♂️ Running the Application
+
+1. **Start the development server**
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   # or
+   pnpm dev
+   ```
+
+2. **Open your browser**
+   Navigate to [http://localhost:5173](http://localhost:5173) to see the application in action.
+
+<!-- TESTING -->
+## 📖 Usage
+
+### For Instructors:
+
+1. **Create an Account**: Sign up using Google OAuth or email/password
+2. **Review Submissions**: Access student thesis drafts for review
+3. **Provide Feedback**: Annotate documents and leave comments
+
+### For Students:
+
+1. **Create an Account**: Sign up using Google OAuth or email/password
+2. **Submit Draft**: Upload your thesis draft for review
+3. **View Feedback**: Access feedback provided by your advisers
+
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous key | Yes |
+| `NEXT_PUBLIC_BASE_URL` | Base URL for QR code generation | Yes |
+
+
+<!-- TESTING -->
+## 🚀 Deployment
+
+### Deploy to Vercel
+
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy!
+
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/CSci-153-Web-Systems-and-Technologies/batch-2025-resmate-web.git)
+
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
+
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## 🙏 Acknowledgments
+
+- [Next.js](https://nextjs.org/) for the React framework
+- [Supabase](https://supabase.com/) for the backend infrastructure
+- [shadcn/ui](https://ui.shadcn.com/) for the UI components
+- [Tailwind CSS](https://tailwindcss.com/) for styling
+
+
+## 📞 Support
+
+If you encounter any issues or have questions, please [open an issue]([https://github.com/ja-varron/wild-rift/issues](https://github.com/ja-varron/wild-rift/issues)) on GitHub.
+
+---
+
+Made with ❤️ for educators and students everywhere.
