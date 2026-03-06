@@ -1,0 +1,200 @@
+Chapter 1 	INTRODUCTION
+1.1 Background of the Problem
+Mock board examinations play a crucial role in evaluating students’ academic readiness and identifying learning gaps prior to actual licensure or board examinations. These assessments help institutions measure instructional effectiveness while providing students with feedback on their strengths and weaknesses. Accurate and timely evaluation of mock board exams is essential to ensure that students receive reliable performance data that can guide their preparation strategies.
+
+In many educational institutions, mock board examination papers are still checked manually by instructors. This process typically involves reviewing each answer sheet individually, computing scores by hand, and recording results using paper-based methods or spreadsheets. Feedback is often provided after a considerable delay due to the volume of exam papers and instructors’ other academic responsibilities, making the overall process time-consuming and inefficient.
+
+The process of manually checking examination papers has been a responsibility of educational institutions. However, several studies identified significant challenges associated with this practice. One of the most common issues is the excessive time and workload faced by instructors, especially in large classes. According to Shrestha, et al. (2025), the study emphasized that manual checking of examination papers is labor-intensive and tedious, often requiring extended hours that contribute to fatigue. As educators, balancing teaching, administrative duties, and assessment tasks, manual grading becomes increasingly unsustainable.
+
+As stated by Shrestha, et al. (2025) about time constraints, human fatigue and cognitive overload are also major factors affecting grading accuracy. The study states that prolonged periods of manual checking can lead to lapses in concentration, increasing likelihood of scoring errors. These findings supported by Eklavvya (n.d), who reported that error rates tend to rise significantly after several hours of continuous marking. Individuals affected by fatigue increasedet the risk of incorrect total score calculations, compromising result accuracy.
+
+The delayed release of examination results is an adverse effect of manual grading. Research on essay grading practices indicates that slow feedback negatively impacts student learning, as timely feedback is essential for reinforcing concepts and addressing weaknesses (Essay Grading Research Paper, 2025). When feedback is delayed, students miss opportunities for immediate improvement, reducing the educational value of assessments and increasing frustration among learners.
+
+Given the limitations of manual examination checking, there is a growing need for an automated system that can efficiently evaluate exam papers, generate accurate scores, and provide timely feedback. An automated exam checking and progress tracking system can reduce instructor workload, minimize human error, and deliver real-time performance analytics. Such a system would support data-driven decision-making for instructors and help students better monitor their academic progress and readiness for board examinations.
+
+1.2 Overview of the Current State of the Technology
+Existing automatic examination checker software, like Zipgrade, excel at determining correct and incorrect answers accurately, and computing the score automatically. However, these tools lack performance monitoring and personalized feedback features that students want in order to improve their academic performance for their readiness for actual licensure board examination. The VSU - Review Center still uses manual checking and grading examination papers for each student enrolled in their institution. The students get only the score after the assessment. Tuon addresses these problems by creating a comprehensive and intuitive automated examination solution for the said institution.	
+
+1.3 Project Rationale
+Developing Tuon aims to address inefficiencies in manual checking of multiple examination papers, compute scores for instructor side while students get performance analytics based on their scores per unit assessment. By focusing on automation and transparency, the application will help educators relieved from burnout due to continuous marking while students have more time to decide what to study more based on their strengths and weaknesses, making them more productive.
+
+Chapter 2	PROJECT DESCRIPTION
+1.4 Problem Statement
+The Visayas State University (VSU) Review Center currently relies on manual procedures for checking multiple-choice examination papers and consolidating exam results, which is time-consuming and limits the timely release of feedback to students. This manual process also restricts the review center’s ability to efficiently analyze examination results and identify students’ performance based on specific topics. As a result, there is a need to develop a web-based system that automates the checking of multiple-choice examinations using scanned answer sheets, supports exam analytics, enables instructors to provide personalized feedback, and notifies students when their results are available. This study focuses on the design and development of such a system to improve the efficiency and accuracy of examination evaluation at the VSU Review Center.
+
+1.5 Objectives of the Study
+1.5.1 General Objectives
+To design and implement, within the duration of the study, a web-based exam checking system for the Visayas State University (VSU) Review Center that automates the evaluation of multiple-choice examinations using scanned answer sheets, generates exam analytics, supports instructor-provided feedback, and delivers examination results to students through email notifications.
+1.5.2 Specific Objectives
+    • To design a modular client–server architecture for a web-based exam checking system that supports multiple-choice examinations, scanned answer sheet processing, exam analytics, personalized feedback, and email-based result notification for the VSU Review Center.
+    • To develop a web-based application that automates the checking of multiple-choice examinations using scanned answer sheets, manages exam profiles and configurations, generates topic-based performance analytics, and enables instructors to provide feedback to students.
+    • To test the functionality, accuracy, and reliability of the developed system by evaluating its grading results, analytics output, and notification features to ensure it meets the operational requirements of the VSU Review Center.
+
+1.6 Scope and Limitations
+This study focuses on the design, development, and testing of a web-based prototype commissioned by the Visayas State University (VSU) Review Center for automating the checking of multiple-choice examinations using scanned answer sheets. The prototype includes modules for exam profile and configuration management, optical recognition of marked answers, automated grading using predefined answer keys, generation of topic-based exam analytics, instructor-provided personalized feedback, and email notification of examination results. The system is evaluated based on its ability to accurately check exam papers, generate reliable analytics, support feedback delivery, and notify students in a timely manner, thereby addressing the problem of inefficient manual exam checking.
+The scope of the prototype is limited to multiple-choice examinations and does not cover essay-type or open-ended questions. Feedback generation is not automated and depends on instructor input. The evaluation of the system is constrained by the quality of scanned answer sheets, which may vary due to scanning devices, paper quality, or marking consistency. In addition, the prototype does not include real-time online examination delivery, mobile application support, or integration with external learning management systems, as these features are beyond the current requirements of the VSU Review Center. 
+The limitations of this study include factors beyond the control of the proponents, such as variations in scanning quality, user adherence to proper answer sheet marking, and the reliability of third-party email services used for notifications. These conditions may affect system performance and limit the generalization of the results to other institutions or examination formats. Consequently, the findings of the study are applicable primarily to multiple-choice exam checking environments similar to that of the VSU Review Center.
+
+
+
+
+
+
+
+Chapter 3	METHODOLOGY
+3.1 Planning Phase
+The proponents performed information and requirements gathering to validate the feasibility idea. It included conducting interviews with instructors and staff of the Visayas State University (VSU) Review Center to identify existing problems in the current examination checking process. In addition, document reviews were conducted to analyze existing examination materials, answer sheet formats, and result reporting procedures. These activities enabled the proponents to determine the functional and non-functional requirements of the system and ensured that the proposed solution aligns with the operational needs of the VSU Review Center.
+3.2 Analysis Phase
+After completing the information and requirements gathering activities, the collected data were analyzed to identify and define the necessary functional and non-functional requirements of the system and to determine the minimum viable product (MVP). Although the Visayas State University (VSU) Review Center utilizes existing procedures for examination checking and result management, there is no dedicated software available that addresses the specific requirements of automated multiple-choice exam checking using scanned answer sheets, exam analytics, and result notification.
+Based on the analysis, the proponents set their objective to develop a web-based exam checking and analytics system managed by administrators and instructors, which allows students to access their examination results and feedback through the client-side application. To support the development process, the proponents designed system models including the Context Diagram, Data Flow Diagram, Entity Relationship Diagram, Use Case Diagram and Scenarios, and a Gantt Chart. These models serve as representations of the system’s structure, data flow, user interactions, and project timeline, thereby guiding the development process and ensuring that project goals and deadlines are feasible and well-defined.
+3.3 Design Phase
+The proponents focused on creating a minimalist and user-friendly user interface (UI) to ensure ease of use for all system users. A single login interface was designed to accommodate all user levels, including administrators, instructors, and students. Upon successful authentication, the system directs users to role-based landing pages that control access to features according to user privileges. Students are provided with limited access that allows them to view examination results and feedback, while administrators and instructors are granted access to system links and features that support exam management, grading oversight, analytics generation, and other maintenance utilities.
+The system was designed as a web-based application accessible across platforms that support modern web browsers. This design approach ensures compatibility and ease of access without requiring specialized hardware or mobile application installation, thereby supporting the operational needs of the Visayas State University Review Center.
+3.4 Development Phase
+Based on the development methodology, the proponents implemented the core modules and database backend before starting with the individual modules or use cases. The user interface was developed first before integrating its corresponding client and backend functionalities.
+3.5 Testing Phase
+After each module was delivered, the system was unit-tested by the core developer and independently tested by an external set of testers. Bug reports were prioritized then fixes were integrated before the release of the golden code.
+3.6 Maintenance Phase
+The proponents upgraded the system based on bug reports after the installation while also addressing the technical problems via user-support. The proponents continued communication with their clients to help make the system better. And future proponents will tackle the reserved requirements and other requirements that may arise to further benefit the clients.
+Chapter 4	SOFTWARE REQUIREMENTS SPECIFICATION
+4.1 Hardware
+The system requires standard computing devices to support development, deployment, and usage. For system development and administration, a desktop or laptop computer with a multi-core processor, at least 8 GB of RAM, and sufficient storage is required to run the development tools, web server, database server, and optical recognition components. For deployment, a server or hosting environment capable of supporting a web application and database is necessary to ensure reliable system availability. 
+End-users, including instructors and students of the Visayas State University Review Center, may access the system using desktop computers, laptops, or mobile devices equipped with a modern web browser and a stable internet connection. Additionally, a scanner or scanning-enabled device is required to convert paper-based multiple-choice answer sheets into digital format for system processing. These hardware requirements allow the system to be deployed and utilized effectively without the need for specialized or proprietary equipment.
+4.2 Software
+The system will be developed using Python as the primary programming language for backend processing due to its simplicity and strong support for image processing tasks. The Flask web framework will be used to implement the server-side application, providing routing, RESTful APIs, and a modular structure suitable for a modular monolithic architecture. For the processing of scanned multiple-choice answer sheets, the system will utilize OpenCV for optical mark recognition and image preprocessing, supported by NumPy and Pandas for data handling and performance analysis. The frontend of the system will be developed using React (JavaScript) to create a dynamic and responsive user interface, allowing users to interact efficiently with the system through a web browser. A MySQL relational database will be used to store structured data such as user accounts, examination records, results, feedback, and analytics, while scanned answer sheets will be stored in a server-based file storage system. To deliver examination results and feedback, the system will use Flask-Mail and SMTP services for automated email notifications.
+4.3 Analysis Models
+4.3.1 Process Flowchart
+
+
+
+Figure 1. Flowchart of the Manual Exam Checking Process
+This flowchart shows a traditional, paper-based exam management system. The process begins with manual student registration through forms and fee payment. Once approved, students attend face-to-face classes, then take mock exams on printed paper. Teachers manually collect answer sheets, grade them by comparing with answer keys, and record scores by hand or in Excel spreadsheets. Finally, results are announced and students can view their graded exam papers. The entire workflow relies on manual processes without any digital automation or computerized systems.
+4.3.2 System Architecture
+
+Figure 2. System Architecture
+The system follows a modular monolithic architecture where users access the application through a web browser, and all core functions—such as OMR processing, grading, result verification, analytics, feedback, and notifications—are handled within the server layer. A relational database stores exam records and results, while scanned answer sheets are kept in file storage, enabling accurate, secure, and efficient automated exam evaluation.
+4.3.3 User Requirements
+The primary responsibilities of the application:
+    1. The instructor will scan the exam paper for automatic checking.
+    2. The system will generate score results from scanned exam papers.
+    3. Users will have access to topic-wise score reports to determine strengths and weaknesses.
+    4. The instructor will send personalized feedback to students based on the analytics.
+    5. The system automatically notified students once the exam score was released.
+Other desired features of the application:
+    1. The system will generate an account for students upon registration.
+    2. Only authenticated users will access exam results.
+    3. The system will read 100 percent shaded answers correctly.
+    4. The system will process exam results within 30 seconds after upload.
+    5. The system will handle multiple concurrent scans and result updates.
+    6.  	The website will be responsive to any device and simple for the users.
+4.3.4 User and Functional Requirement Mapping
+The following list represents the functional requirements for the Tuon to cater to the user requirements.
+
+User Requirement Step
+Functional Requirement ID #
+Functional Name
+Description (System Requirement)
+UR1
+FR 1.0
+Exam Paper Scanner
+The instructors shall use mobile-compatible scanner interface to scan exam papers using existing image recognition technology.
+UR2
+FR 2.0
+Result Processing
+Compare scanned answers from the stored answer keys and automatically compute the total and per-topic scores before storing the results in the database.
+UR3
+FR 3.0
+Exam Analytics
+Generates topic-based performance analytics for each exam and allows filtering of reports by exam topic. Only authorized users can access their own reports.
+UR4
+FR 4.0
+Feedback Management
+The instructors shall have a feedback interface to input and save feedback/recommendation per student and per exam. It shall be stored in the student’s record.
+UR5
+FR 5.0
+Notification Alert
+Generates notification after an instructor finalizes exam results via email. It includes the exam title and result summary in the notification
+
+
+The functional requirements were prioritized based on the logical workflow of the automated exam system. FR 1.0 (Exam Paper Scanner) was placed first as it serves as the entry point—exams must be scanned before any processing can occur. FR 2.0 (Result Processing) follows immediately since it handles the core automation task of comparing answers and calculating scores, which is the system's primary value proposition. FR 3.0 (Exam Analytics) comes next as it depends on processed results to generate performance insights. FR 4.0 (Feedback Management) was positioned fourth because instructors need exam results and analytics before providing meaningful feedback. Finally, FR 5.0 (Notification Alert) was placed last as it represents the final step—notifying students only after all processing, analytics, and feedback are complete.
+4.3.5 Use Case Diagram
+Figure 3. Use Case Diagram
+This Use Case Diagram shows an automated mock board exam system with two main users: Students and Instructors. The system handles user authentication as the entry point. Instructors can scan exam papers, which triggers automated processing of exam results. The system then generates analytics from the processed data and sends notifications to students. Students can access reports, receive personalized feedback, and get notifications about their exam performance.
+4.3.6 Context Diagram
+
+
+Figure 4. Context Diagram
+
+This high-level diagram shows the Mock Board Exam & Analytics System as a single process interacting with three external entities. Students receive performance and feedback data from the system and can request notifications, commands, and reports. Instructors provide scanned exam details and receive analytics report data. The System Database stores exam scores and analytics reports while providing feedback requests to the main system.
+
+
+
+
+
+
+
+
+
+4.3.7 Diagram 0
+Figure 5. Diagram 0
+This detailed diagram breaks down the system into six main processes. The flow begins when Instructors scan exam papers through the Exam Paper Scanning System, which stores exam images (D1). The Result Processing system compares scanned answer sheets against the Answer Keys database (D2) to generate exam scores stored in Exam Results (D). The Exam Analytics Generator creates analysis reports saved in Analytics Record (D), which feeds into Feedback Management to generate personalized student feedback stored in Student Feedbacks (D). Finally, the Notification Engine sends exam results, analytics, and feedback to Students. This diagram shows the complete automated workflow from scanning to student notification.
+4.3.8 Entity Relationship Diagram
+
+Figure 6. Entity Relationship Diagram
+This ERD shows the database structure for the Mock Board Exam system with 11 interconnected tables. The User table is central, linking to Examinee, Course, and Feedback. Courses contain Subjects and Topics for content organization. The Exam table connects to Exam Paper (student answers), Question Key and Answers (correct answers), and Score Result (grading outcomes). All tables use primary keys (PK) and foreign keys (FK) to maintain relationships, enabling the system to manage user accounts, course content, exam administration, automated grading, and performance tracking in a structured database.
+Chapter 7	PROJECT MANAGEMENT
+7.1 Effort Estimation
+
+Table 2. Function Point Analysis
+The Historical Productivity Score was based on the average productivity score of similar projects developed by the members of the team. For consistency, the same weights were used during the analysis of historical data and the current Function Point Count. The effort estimation shows that the project can be done within 9.22 weeks.
+
+
+7.2 Gantt Chart of Activities
+7.2.1 Project Manager
+
+
+Figure 7.1 Gantt Chart (Project Manager)
+
+Mr. Varron handled the project management, however, he also made major contributions to the software design and development. With his supervision, he helped manage the team’s changing and limited resources and schedules to consistently deliver on time. He also was the developer of the Exam Management module, which was integral to the overall functionality of the software.
+Throughout the project, constant collaboration with the team through regular planning and design changes were done Figure 7.1, however, these were all documented and communicated to all stakeholders.
+
+7.2.2 Lead Developer
+
+Figure 7.2 Gantt Chart (Lead Developer)
+
+The lead developer, Mr. Cerna, primarily made the major software implementations, unit testing, and most of the bug fixes. He also manages the central repository by performing necessary code reviews and pull requests. The design and specification document were robust, however, the lead developer provided expert judgement by ensuring all the necessary changes were carefully analyzed, controlled, documented, and communicated to improve the quality of the software.
+
+
+
+
+
+
+
+7.2.3 Test Engineer
+
+Figure 7.3 Gantt Chart (Test Lead)
+
+Mr. Libardo is responsible for planning, coordinating, and overseeing all testing activities throughout the software development lifecycle. He develops test strategies, create test plans, and design test cases to ensure comprehensive quality assurance. He manages testing resources, track defects, and collaborate with development teams to resolve issues. He also refine requirements and specifications by identifying gaps or ambiguities during test planning. Additionally, he establishes testing standards, report quality metrics to stakeholders, and ensure the final product meets functional and non-functional requirements before release.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
