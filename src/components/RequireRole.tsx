@@ -37,8 +37,12 @@ export default function RequireRole({ allowedRoles, children }: RequireRoleProps
                 const roleFromProfile = !profileError && profile?.role ? profile.role : null
                 const role = (roleFromProfile || user.user_metadata?.role || user.app_metadata?.role || "Student") as string
 
-                const normalized = role.toLowerCase()
+                const normalized = role.trim().toLowerCase()
                 const allowed = allowedRoles.map((r) => r.toLowerCase())
+
+                console.debug("RequireRole -> user.id:", user.id)
+                console.debug("RequireRole -> roleFromProfile:", roleFromProfile)
+                console.debug("RequireRole -> resolved role:", role)
 
                 if (!allowed.includes(normalized)) {
                     // redirect to user's home based on their role

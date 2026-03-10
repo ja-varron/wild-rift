@@ -34,24 +34,67 @@ export function LoginForm({
         return
       }
 
-      const user = (data as any)?.user ?? (data as any)?.session?.user
+      let user = (data as any)?.user ?? (data as any)?.session?.user
 
-      // Try to read authoritative role from profiles table first
+      // If signIn returned a session, ensure the client has it set before querying profiles
+      const returnedSession = (data as any)?.session ?? (data as any)?.data?.session
+      if (returnedSession && returnedSession.access_token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: returnedSession.access_token,
+            refresh_token: returnedSession.refresh_token,
+          })
+        } catch (e) {
+          console.debug("Failed to set session on client", e)
+        }
+      }
+
+      // Ensure we have the latest current user from Supabase
+      if (!user?.id) {
+        const { data: getUserData } = await supabase.auth.getUser()
+        user = (getUserData as any)?.user ?? user
+      }
+
+      // Try to read authoritative role from profiles table first (by id, then by email)
       let roleFromProfile: string | null = null
       if (user?.id) {
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileById, error: profileByIdError } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", user.id)
           .maybeSingle()
 
-        if (!profileError && profile?.role) {
-          roleFromProfile = profile.role as string
+        if (!profileByIdError && profileById?.role) {
+          roleFromProfile = profileById.role as string
+        }
+      }
+
+      if (!roleFromProfile && (user?.email || email)) {
+        const emailToLookup = user?.email ?? email
+        const { data: profileByEmail, error: profileByEmailError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("email", emailToLookup)
+          .maybeSingle()
+
+        if (!profileByEmailError && profileByEmail?.role) {
+          roleFromProfile = profileByEmail.role as string
         }
       }
 
       const role = (roleFromProfile || user?.user_metadata?.role || user?.app_metadata?.role || "student") as string
-      const r = role.toLowerCase()
+      const r = role.trim().toLowerCase()
+
+      console.debug("login debug -> user:", user)
+      console.debug("login debug -> roleFromProfile:", roleFromProfile)
+      console.debug("login debug -> resolved role:", role)
+
+      // show a short toast for debugging (requires Toaster mounted)
+      try {
+        toast(`Signed in as ${role}`, { type: "success" })
+      } catch (e) {
+        /* ignore toast errors */
+      }
 
       if (r.includes("admin")) navigate("/admin")
       else if (r.includes("instructor")) navigate("/instructor")
