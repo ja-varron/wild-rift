@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -9,18 +10,50 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { signIn } from "@/lib/auth"
+import { toast } from "sonner"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const { data, error } = await signIn(email.trim(), password)
+      if (error) {
+        toast.error(error.message ?? "Sign in failed")
+        setLoading(false)
+        return
+      }
+
+      const user = (data as any)?.user ?? (data as any)?.session?.user
+      const role = (user?.user_metadata?.role || user?.app_metadata?.role || "student") as string
+      const r = role.toLowerCase()
+
+      if (r.includes("admin")) navigate("/admin")
+      else if (r.includes("instructor")) navigate("/instructor")
+      else navigate("/student")
+    } catch (err) {
+      toast.error("Sign in failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className={cn("flex flex-col gap-4", className)} {...props}>
       <Card className="overflow-hidden p-0 shadow-lg">
         <CardContent className="grid p-0 md:grid-cols-2">
 
           {/* ── Left: Form ── */}
-          <form className="p-8 md:p-10 flex flex-col justify-center">
+          <form onSubmit={handleSubmit} className="p-8 md:p-10 flex flex-col justify-center">
             <FieldGroup>
               {/* Logo + heading */}
               <div className="flex flex-col items-center gap-3 text-center mb-2">
@@ -43,6 +76,8 @@ export function LoginForm({
                   type="email"
                   placeholder="you@vsu.edu.ph"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </Field>
 
@@ -56,15 +91,22 @@ export function LoginForm({
                     Forgot password?
                   </Link>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </Field>
 
               <Field>
                 <Button
                   type="submit"
                   className="w-full bg-teal-700 hover:bg-teal-800 text-white"
+                  disabled={loading}
                 >
-                  Sign In
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </Field>
             </FieldGroup>
