@@ -27,6 +27,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useNavigate } from "react-router-dom"
+import { signOut } from "@/lib/auth"
+import { toast } from "sonner"
 
 type User = {
   name: string
@@ -37,6 +39,19 @@ type User = {
 const NavigationUser = ({ user }: { user: User }) => {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
+
+  async function handleLogout() {
+    try {
+      const { error } = await signOut()
+      if (error) {
+        toast.error(error.message ?? "Failed to sign out")
+        return
+      }
+      navigate("/login", { replace: true })
+    } catch (err) {
+      toast.error("Failed to sign out")
+    }
+  }
 
   return (
     <SidebarMenu>
@@ -96,7 +111,7 @@ const NavigationUser = ({ user }: { user: User }) => {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <IconLogout />
               Log out
             </DropdownMenuItem>
