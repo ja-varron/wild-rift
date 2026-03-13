@@ -43,10 +43,6 @@ export class User {
     return this.user_id
   }
 
-  set setUserId(id: string) {
-    this.user_id = id
-  }
-
   get getFirstName() {
     return this.first_name
   }

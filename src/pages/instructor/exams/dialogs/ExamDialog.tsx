@@ -3,7 +3,25 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-const ExamDialog = () => {
+type ExamDialogProps = {
+  createDialogOpen: boolean
+  setCreateDialogOpen: (open: boolean) => void
+  newTitle: string
+  setNewTitle: (title: string) => void
+  newCourse: string
+  setNewCourse: (course: string) => void
+  newDate: string
+  setNewDate: (date: string) => void
+  newTotalItems: string
+  setNewTotalItems: (totalItems: string) => void
+  newPassingRate: string
+  setNewPassingRate: (passingRate: string) => void
+  newTopics: string
+  setNewTopics: (topics: string) => void
+  handleCreateExam: () => void
+}
+
+const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTitle, newCourse, setNewCourse, newDate, setNewDate, newTotalItems, setNewTotalItems, newPassingRate, setNewPassingRate, newTopics, setNewTopics, handleCreateExam }: ExamDialogProps) => {
   return (
     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
       <DialogContent className="sm:max-w-lg">
