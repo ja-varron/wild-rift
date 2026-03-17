@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react"
-import { User } from "@/model/user"
+import type { UserProfile } from "@/model/user-profile"
 
 const PAGE_SIZE = 10
 
@@ -16,8 +16,8 @@ function roleBadgeClass(role: string) {
 }
 
 type AccountTableProps = {
-  users: User[]
-  onEdit: (account: User) => void
+  users: UserProfile[]
+  onEdit: (account: UserProfile) => void
   onDelete: (userId: string) => void
 }
 
@@ -66,7 +66,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                       {account.getUserRole}
                     </Badge>
                   </TableCell>
-                  <TableCell>{account.getExamReview || "—"}</TableCell>
+                  {/* <TableCell>{account.getExamReview || "—"}</TableCell> */}
                   <TableCell className="text-muted-foreground">{account.getDateCreated}</TableCell>
                   <TableCell className="text-right pr-5">
                     <div className="flex items-center justify-end gap-1">
