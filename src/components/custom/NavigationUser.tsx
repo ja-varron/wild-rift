@@ -27,7 +27,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useNavigate } from "react-router-dom"
-import { signOut } from "@/lib/auth"
+import { signOut } from "@/lib/supabase/authentication/auth"
 import { toast } from "sonner"
 
 type User = {
