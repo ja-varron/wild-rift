@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { Link, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,15 +10,14 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { signIn } from "@/lib/auth"
-import { supabase } from "@/lib/supabase"
+import { signIn } from "@/lib/supabase/authentication/auth"
+// import { supabase } from "@/lib/supabase/supabase"
 import { toast } from "sonner"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -27,80 +26,16 @@ export function LoginForm({
     e.preventDefault()
     setLoading(true)
     try {
-      const { data, error } = await signIn(email.trim(), password)
+      const { error } = await signIn(email.trim(), password)
       if (error) {
         toast.error(error.message ?? "Sign in failed")
-        setLoading(false)
         return
       }
-
-      let user = (data as any)?.user ?? (data as any)?.session?.user
-
-      // If signIn returned a session, ensure the client has it set before querying profiles
-      const returnedSession = (data as any)?.session ?? (data as any)?.data?.session
-      if (returnedSession && returnedSession.access_token) {
-        try {
-          await supabase.auth.setSession({
-            access_token: returnedSession.access_token,
-            refresh_token: returnedSession.refresh_token,
-          })
-        } catch (e) {
-          console.debug("Failed to set session on client", e)
-        }
-      }
-
-      // Ensure we have the latest current user from Supabase
-      if (!user?.id) {
-        const { data: getUserData } = await supabase.auth.getUser()
-        user = (getUserData as any)?.user ?? user
-      }
-
-      // Try to read authoritative role from profiles table first (by id, then by email)
-      let roleFromProfile: string | null = null
-      if (user?.id) {
-        const { data: profileById, error: profileByIdError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle()
-
-        if (!profileByIdError && profileById?.role) {
-          roleFromProfile = profileById.role as string
-        }
-      }
-
-      if (!roleFromProfile && (user?.email || email)) {
-        const emailToLookup = user?.email ?? email
-        const { data: profileByEmail, error: profileByEmailError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("email", emailToLookup)
-          .maybeSingle()
-
-        if (!profileByEmailError && profileByEmail?.role) {
-          roleFromProfile = profileByEmail.role as string
-        }
-      }
-
-      const role = (roleFromProfile || user?.user_metadata?.role || user?.app_metadata?.role || "student") as string
-      const r = role.trim().toLowerCase()
-
-      console.debug("login debug -> user:", user)
-      console.debug("login debug -> roleFromProfile:", roleFromProfile)
-      console.debug("login debug -> resolved role:", role)
-
-      // show a short toast for debugging (requires Toaster mounted)
-      try {
-        toast(`Signed in as ${role}`, { type: "success" })
-      } catch (e) {
-        /* ignore toast errors */
-      }
-
-      if (r.includes("admin")) navigate("/admin")
-      else if (r.includes("instructor")) navigate("/instructor")
-      else navigate("/student")
+      toast.success("Signed in successfully!")
+      // The router will handle redirection.
     } catch (err) {
-      toast.error("Sign in failed")
+      toast.error("An unexpected error occurred during sign-in.")
+      console.error("Sign-in error:", err)
     } finally {
       setLoading(false)
     }
