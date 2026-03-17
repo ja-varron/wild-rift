@@ -4,53 +4,27 @@ A web-based application designed to streamline the process of checking multiple-
 
 ---
 
-## Internal Code Name: wild-rift
 
-| Internal Release Code | Date Released |
-|-----------------------|---------------|
-| WR.010.001            | 2026-02-27   |
-| …                     | …             |
+## ✨ Features
 
-### WR.010.001 Release Notes
-- Implement landing page to view feature info and its process workflow
-- Add login page for this project
-- Add student analytics page and its components
-- Add sidebar, nav user and top bar components for authenticated users
-- Add student dashboard page and its components
-- Adds documentation files
-- Adds new UI components and dependencies
-- Adds UI components library
-- Modify the documentation content for testing
-- Add MIT License to the project
-- Delete app css file to give way for main index css file and testing the tailwind functionality
-- Tailwind CSS and ShadCN setup
+- **Exam Paper Scanner**: Automatically scans and detects answers from multiple-choice exam sheets using Optical Mark Recognition (OMR) powered by Python and OpenCV.
+- **Result Processing**: Processes scanned answer sheets by comparing detected answers with the answer key to automatically compute scores.
+- **Exam Analytics**: Provides visual analytics such as score distributions, average scores, and topic-based performance to help evaluate exam results.
+- **Feedback Management**: Allows instructors to review exam performance and provide feedback based on student results and identified weak topics.
+- **Notification Alert**: Sends notifications to users when exam results are processed or when new feedback is available.
+- **User Roles**: Supports role-based access control for administrators, instructors, and students to manage exams and results efficiently.
+- **Responsive Design**: Ensures the system works smoothly across desktop, tablet, and mobile devices.
+- **Authentication**: Secure authentication system where only administrators can create and manage accounts for students and instructors. Users log in using their assigned email and password through Supabase authentication.
 
-
-**Important Links:**
-- Design Specs: https://github.com/ja-varron/wild-rift-docportal.git
-
----
-
-<!-- FOR TESTING -->
-# ✨ Features
-
-- **Exam Paper Scanner**: Students can submit their thesis drafts for review
-- **Result Processing**: Advisers can highlight and comment on specific sections of the document
-- **Exam Analytics**: Organize and track feedback from reviewers
-- **Feedback Management**: Organize and track feedback from reviewers
-- **Notification Alert**: Organize and track feedback from reviewers
-- **User Roles**: Different access levels for students and advisers
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **Authentication**: Secure login with Google OAuth and email/password
-- **Real-time Updates**: Live updates using Supabase real-time subscriptions
 
 ## 🚀 Tech Stack
 
 - **Frontend**: React Vite with App Router, React 18, TypeScript
 - **Backend**: Supabase (PostgreSQL, Auth, Real-time)
 - **Styling**: Tailwind CSS with shadcn/ui components
-- **Authentication**: Supabase Auth with Google OAuth
+- **Authentication**: Supabase Authentication
 - **Deployment**: Vercel
+
 
 ## 📋 Prerequisites
 
@@ -59,6 +33,7 @@ Before you begin, ensure you have:
 - Node.js 18+ installed
 - A Supabase account and project
 - Git installed on your machine
+
 
 ## 🛠️ Installation
 
@@ -82,8 +57,9 @@ Before you begin, ensure you have:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   NEXT_PUBLIC_BASE_URL=http://localhost:5173
    ```
+
 
 ## 🏃‍♂️ Running the Application
 
@@ -99,20 +75,26 @@ Before you begin, ensure you have:
 2. **Open your browser**
    Navigate to [http://localhost:5173](http://localhost:5173) to see the application in action.
 
-<!-- TESTING -->
+
 ## 📖 Usage
+
+### For Administrator
+1. **Create User Accounts:** Register and manage accounts for instructors and students.
+2. **Manage Exams:** Create, update, and organize exam records within the system.
+3. **Monitor Results:** View processed exam results and overall exam analytics.
 
 ### For Instructors:
 
-1. **Create an Account**: Sign up using Google OAuth or email/password
-2. **Review Submissions**: Access student thesis drafts for review
-3. **Provide Feedback**: Annotate documents and leave comments
+1. **Scan Exam Papers:** Capture images of completed answer sheets for automatic OMR scanning.
+2. **Review Results:** View processed scores generated from the scanned answer sheets.
+3. **Analyze Performance:** Access analytics such as score distributions and topic-based performance.
+4. **Provide Feedback:** Review student performance and provide feedback based on exam results.
 
 ### For Students:
 
-1. **Create an Account**: Sign up using Google OAuth or email/password
-2. **Submit Draft**: Upload your thesis draft for review
-3. **View Feedback**: Access feedback provided by your advisers
+1. **Log In:** Access the system using the account created by the administrator.
+2. **View Exam Results:** Check scores and performance summaries for completed exams.
+3. **View Feedback** Access feedback and insights provided by instructors.
 
 
 ## 🔧 Configuration
@@ -123,10 +105,8 @@ Before you begin, ensure you have:
 |----------|-------------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Yes |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous key | Yes |
-| `NEXT_PUBLIC_BASE_URL` | Base URL for QR code generation | Yes |
 
 
-<!-- TESTING -->
 ## 🚀 Deployment
 
 ### Deploy to Vercel
@@ -136,13 +116,12 @@ Before you begin, ensure you have:
 3. Add environment variables in Vercel dashboard
 4. Deploy!
 
-
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/CSci-153-Web-Systems-and-Technologies/batch-2025-resmate-web.git)
 
 
 ## 🤝 Contributing
 
-1. Fork the repository
+1. Clone the repository
 2. Create a feature branch: `git checkout -b feature-name`
 3. Commit your changes: `git commit -m 'Add some feature'`
 4. Push to the branch: `git push origin feature-name`
@@ -156,7 +135,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Next.js](https://nextjs.org/) for the React framework
+- [React Vite](https://vite.dev/) for the React framework
 - [Supabase](https://supabase.com/) for the backend infrastructure
 - [shadcn/ui](https://ui.shadcn.com/) for the UI components
 - [Tailwind CSS](https://tailwindcss.com/) for styling
@@ -164,7 +143,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-If you encounter any issues or have questions, please [open an issue]([https://github.com/ja-varron/wild-rift/issues](https://github.com/ja-varron/wild-rift/issues)) on GitHub.
+If you encounter any issues or have questions, please [open an issue](https://github.com/ja-varron/wild-rift/issues) on GitHub.
 
 ---
 
