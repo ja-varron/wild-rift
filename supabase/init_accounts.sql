@@ -11,14 +11,13 @@ END $$;
 
 -- 2) Profiles table (one row per auth.user)
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
   email text UNIQUE NOT NULL,
   first_name text NOT NULL,
   middle_name text,
   last_name text NOT NULL,
   role public.user_role NOT NULL DEFAULT 'Student',
-  exam_review text DEFAULT '',
-  date_created timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   is_active boolean NOT NULL DEFAULT true
 );
@@ -44,9 +43,9 @@ FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE OR REPLACE FUNCTION public.handle_auth_user_created()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, first_name, middle_name, last_name, role, date_created)
+  INSERT INTO public.profiles (user_id, email, first_name, middle_name, last_name, role, created_at)
   VALUES (NEW.id, NEW.email, '', NULL, '', 'Student', now())
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -60,7 +59,7 @@ FOR EACH ROW EXECUTE FUNCTION public.handle_auth_user_created();
 CREATE OR REPLACE FUNCTION public.handle_auth_user_deleted()
 RETURNS TRIGGER AS $$
 BEGIN
-  DELETE FROM public.profiles WHERE id = OLD.id;
+  DELETE FROM public.profiles WHERE user_id = OLD.id;
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -76,25 +75,25 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 -- Allow users to select their own profile
 CREATE POLICY "Profiles: allow select own" ON public.profiles
   FOR SELECT
-  USING (auth.uid() = id);
+  USING (auth.uid() = user_id);
 
 -- Allow users to update their own profile
 CREATE POLICY "Profiles: allow update own" ON public.profiles
   FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Allow users to delete their own profile (optional)
 CREATE POLICY "Profiles: allow delete own" ON public.profiles
   FOR DELETE
-  USING (auth.uid() = id);
+  USING (auth.uid() = user_id);
 
 -- Admin policies: allow users with `role = 'Admin'` in their profile to manage all
 CREATE POLICY "Profiles: admin select" ON public.profiles
   FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM public.profiles ap WHERE ap.id = auth.uid() AND ap.role = 'Admin'
+      SELECT 1 FROM public.profiles ap WHERE ap.user_id = auth.uid() AND ap.role = 'Admin'
     )
   );
 
@@ -102,12 +101,12 @@ CREATE POLICY "Profiles: admin update" ON public.profiles
   FOR UPDATE
   USING (
     EXISTS (
-      SELECT 1 FROM public.profiles ap WHERE ap.id = auth.uid() AND ap.role = 'Admin'
+      SELECT 1 FROM public.profiles ap WHERE ap.user_id = auth.uid() AND ap.role = 'Admin'
     )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM public.profiles ap WHERE ap.id = auth.uid() AND ap.role = 'Admin'
+      SELECT 1 FROM public.profiles ap WHERE ap.user_id = auth.uid() AND ap.role = 'Admin'
     )
   );
 
@@ -115,7 +114,7 @@ CREATE POLICY "Profiles: admin delete" ON public.profiles
   FOR DELETE
   USING (
     EXISTS (
-      SELECT 1 FROM public.profiles ap WHERE ap.id = auth.uid() AND ap.role = 'Admin'
+      SELECT 1 FROM public.profiles ap WHERE ap.user_id = auth.uid() AND ap.role = 'Admin'
     )
   );
 
@@ -123,7 +122,7 @@ CREATE POLICY "Profiles: admin delete" ON public.profiles
 -- Note: `id` must be a valid auth.users id in Supabase. Use Supabase Auth to create a user
 -- then the trigger will create a profile automatically. For manual insertion (tests):
 -- INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-000000000000', 'test@example.com');
--- INSERT INTO public.profiles (id, email, first_name, last_name, role)
+-- INSERT INTO public.profiles (user_id, email, first_name, last_name, role)
 -- VALUES ('00000000-0000-0000-0000-000000000000','test@example.com','Test', 'User','Student');
 
 -- End of migration
