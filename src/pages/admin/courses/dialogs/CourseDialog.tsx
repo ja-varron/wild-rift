@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,10 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
-export interface CourseFormData {
+export interface CourseForm {
   course_name: string
-  course_code: string
   description: string
 }
 
@@ -21,18 +21,23 @@ interface CourseDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** If provided, the dialog is in "edit" mode */
-  initialData?: CourseFormData
-  onSave: (data: CourseFormData) => void
+  initialData?: CourseForm
+  onSave: (data: CourseForm) => void
 }
 
 const CourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDialogProps) => {
   const isEditing = !!initialData
-  const [form, setForm] = useState<CourseFormData>(
-    initialData ?? { course_name: "", course_code: "", description: "" }
+  const [form, setForm] = useState<CourseForm>(
+    initialData ?? { course_name: "", description: "" }
   )
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm(initialData ?? { course_name: "", description: "" })
+  }, [initialData])
+
   function handleSave() {
-    if (!form.course_name.trim() || !form.course_code.trim()) return
+    if (!form.course_name.trim()) return
     onSave(form)
   }
 
@@ -47,9 +52,9 @@ const CourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDialogP
               : "Fill in the details to add a new licensure examination to the review center."}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1.5">
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-1.5">
               <Label htmlFor="courseName">Examination Name *</Label>
               <Input
                 id="courseName"
@@ -59,23 +64,14 @@ const CourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDialogP
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="courseCode">Code *</Label>
-              <Input
-                id="courseCode"
-                value={form.course_code}
-                onChange={(e) => setForm({ ...form, course_code: e.target.value })}
-                placeholder="BSCS"
+              <Label htmlFor="courseDesc">Description</Label>
+              <Textarea
+                id="courseDesc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Review program for the CS licensure board examination."
               />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="courseDesc">Description</Label>
-            <Input
-              id="courseDesc"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Review program for the CS licensure board examination."
-            />
           </div>
         </div>
         <DialogFooter>
