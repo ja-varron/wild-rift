@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   SidebarInset,
   SidebarProvider,
@@ -34,6 +34,7 @@ import { ExamAnalyticsPanel } from "./components/ExamAnalyticsPanel"
 import { ExamDialog } from "./dialogs/ExamDialog"
 import { supabase } from "@/lib/supabase/supabase"
 import { useFetchCourses } from "@/lib/supabase/course/context/use-fetch-courses"
+import { Course } from "@/model/course"
 
 // ── Mock data helpers ──────────────────────────────────────────────────────────
 
@@ -337,8 +338,58 @@ const InstructorExamsPage = () => {
   const [newTotalItems, setNewTotalItems] = useState("")
   const [newPassingRate, setNewPassingRate] = useState("75")
   const [newTopics, setNewTopics] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
 
   const { courses } = useFetchCourses()
+  const [coursesList, setCoursesList] = useState(courses ?? [])
+  const [coursesLoading, setCoursesLoading] = useState(false)
+  const [coursesError, setCoursesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Prefer courses returned by the hook; fall back to direct fetch if empty
+    if (courses && courses.length > 0) {
+      setCoursesList(courses)
+      return
+    }
+
+    let mounted = true
+    ;(async () => {
+      setCoursesLoading(true)
+      setCoursesError(null)
+      try {
+        const { data, error } = await supabase
+          .from("courses")
+          .select("course_id, course_name, course_description, created_at")
+
+        if (error) {
+          console.warn("Could not fetch courses directly:", error)
+          setCoursesError(error.message)
+          return
+        }
+
+        if (!mounted || !data) return
+
+        const mapped = data.map((r: any) =>
+          new Course({
+            course_id: r.course_id,
+            course_name: r.course_name,
+            course_description: r.course_description,
+            created_at: r.created_at,
+          }),
+        )
+        setCoursesList(mapped)
+      } catch (err: any) {
+        console.warn("Error fetching courses fallback:", err)
+        setCoursesError(err?.message ?? String(err))
+      } finally {
+        setCoursesLoading(false)
+      }
+    })()
+
+    return () => {
+      mounted = false
+    }
+  }, [courses])
 
   function resetForm() {
     setNewTitle("")
@@ -354,8 +405,9 @@ const InstructorExamsPage = () => {
   // ── Handlers ──
 
   function handleCreateExam() {
-    if (!newTitle || !newCourseId || !newDate || !newTotalItems || !newTopics)
-      return
+    if (!newTitle || !newCourseId) return
+    if (isSaving) return
+    setIsSaving(true)
 
     const topicNames = newTopics
       .split(",")
@@ -370,6 +422,7 @@ const InstructorExamsPage = () => {
     const passingRateNum = parseInt(newPassingRate) || 75
 
     ;(async () => {
+      console.log("Creating exam...", { newTitle, newCourseId })
       const { data, error } = await supabase.rpc("rpc_create_exam", {
         p_course_id: newCourseId,
         p_exam_title: newTitle,
@@ -380,6 +433,7 @@ const InstructorExamsPage = () => {
 
       if (error) {
         console.error("Error creating exam:", error)
+        setIsSaving(false)
         return
       }
 
@@ -414,6 +468,7 @@ const InstructorExamsPage = () => {
       setNewTotalItems("")
       setNewPassingRate("75")
       setNewTopics("")
+      setIsSaving(false)
     })()
   }
 
@@ -700,7 +755,10 @@ const InstructorExamsPage = () => {
           onCancel={() => {
             resetForm()
           }}
-          courses={courses}
+          courses={coursesList}
+          coursesLoading={coursesLoading}
+          coursesError={coursesError}
+          isSaving={isSaving}
         />
       </TooltipProvider>
     </SidebarProvider>

@@ -22,9 +22,12 @@ type ExamDialogProps = {
   handleCreateExam: () => void
   onCancel?: () => void
   courses?: Course[]
+  isSaving?: boolean
+  coursesLoading?: boolean
+  coursesError?: string | null
 }
 
-const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTitle, newCourseId, setNewCourseId, newDate, setNewDate, newTotalItems, setNewTotalItems, newPassingRate, setNewPassingRate, newTopics, setNewTopics, handleCreateExam, onCancel, courses }: ExamDialogProps) => {
+const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTitle, newCourseId, setNewCourseId, newDate, setNewDate, newTotalItems, setNewTotalItems, newPassingRate, setNewPassingRate, newTopics, setNewTopics, handleCreateExam, onCancel, courses, isSaving, coursesLoading, coursesError }: ExamDialogProps) => {
   return (
     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
       <DialogContent className="sm:max-w-lg">
@@ -55,12 +58,22 @@ const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTit
               value={newCourseId}
               onChange={(e) => setNewCourseId(e.target.value)}
             >
-              <option value="">Select a course</option>
-                {courses?.map((c) => (
-                  <option key={c.getCourseId} value={c.getCourseId}>
-                    {c.getCourseName}
-                  </option>
-                ))}
+              {coursesLoading ? (
+                <option value="">Loading courses...</option>
+              ) : coursesError ? (
+                <option value="">Failed to load courses</option>
+              ) : courses && courses.length > 0 ? (
+                <>
+                  <option value="">Select a course</option>
+                  {courses.map((c) => (
+                    <option key={c.getCourseId} value={c.getCourseId}>
+                      {c.getCourseName}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value="">No courses found</option>
+              )}
             </select>
           </div>
 
@@ -122,10 +135,13 @@ const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTit
           </Button>
           <Button
             className="bg-teal-700 hover:bg-teal-800"
-            onClick={handleCreateExam}
-            disabled={!newTitle || !newCourseId}
+            onClick={() => {
+              console.log('Create button clicked')
+              handleCreateExam()
+            }}
+            disabled={!newTitle || !newCourseId || isSaving}
           >
-            Create Exam
+            {isSaving ? "Creating..." : "Create Exam"}
           </Button>
         </DialogFooter>
       </DialogContent>
