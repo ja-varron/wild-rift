@@ -5,11 +5,11 @@
 BEGIN;
 
 -- 1) Ensure a profile row exists for the auth user with this email.
-INSERT INTO public.profiles (id, email, first_name, middle_name, last_name, role, date_created, is_active)
+INSERT INTO public.profiles (user_id, email, first_name, middle_name, last_name, role, created_at, is_active)
 SELECT id, email, 'Libardo', NULL, 'Luisito', 'Admin', now(), true
 FROM auth.users
 WHERE email = 'libardoluisito123@gmail.com'
-ON CONFLICT (id) DO UPDATE
+ON CONFLICT (user_id) DO UPDATE
   SET email = EXCLUDED.email,
       first_name = COALESCE(EXCLUDED.first_name, public.profiles.first_name),
       middle_name = COALESCE(EXCLUDED.middle_name, public.profiles.middle_name),
@@ -25,10 +25,10 @@ WHERE email = 'libardoluisito123@gmail.com';
 
 -- 3) Optionally remove any student/instructor rows (Admins should not be in role-specific tables)
 DELETE FROM public.instructors
-WHERE id IN (SELECT id FROM public.profiles WHERE email = 'libardoluisito123@gmail.com');
+WHERE user_id IN (SELECT user_id FROM public.profiles WHERE email = 'libardoluisito123@gmail.com');
 
 DELETE FROM public.students
-WHERE id IN (SELECT id FROM public.profiles WHERE email = 'libardoluisito123@gmail.com');
+WHERE user_id IN (SELECT user_id FROM public.profiles WHERE email = 'libardoluisito123@gmail.com');
 
 COMMIT;
 

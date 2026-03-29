@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   middle_name text,
   last_name text NOT NULL,
   role public.user_role NOT NULL DEFAULT 'Student',
+  prc_exam_type text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   is_active boolean NOT NULL DEFAULT true
