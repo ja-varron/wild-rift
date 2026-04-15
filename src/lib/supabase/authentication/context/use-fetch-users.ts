@@ -1,63 +1,77 @@
-import { UserProfile } from "@/model/user-profile";
-import { useQuery } from "@tanstack/react-query";
+import type { UserProfile } from "@/model/user-profile";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import supabase from "@/lib/supabase/supabase";
+import { useEffect } from "react";
 
-type AccountApiRow = {
-  user_id: string
-  first_name: string
-  middle_name?: string | null
-  last_name: string
-  email: string
-  role: string
-  prc_exam_type?: string | null
-  created_at?: string | null
-}
-
-const toUserRole = (role: string): "Instructor" | "Student" | "Admin" => {
-  if (role === "Instructor" || role === "Student" || role === "Admin") {
-    return role
+// Helper function to fetch all users in an institution
+const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
+  if (!institution_id) {
+    throw new Error("Institution ID is required to fetch users")
   }
 
-  return "Student"
-}
-
-const fetchUsers = async () : Promise<UserProfile[]> => {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-  const response = await fetch(`${backendUrl}/api/accounts`);
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload?.error || "Failed to fetch users");
+  // Fetch all users in an institution
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(
+      "first_name, middle_name, last_name, email, role, examinee_id_number"
+    )
+    .eq('institution_id', institution_id)
+    .in('role', ['Student', 'Instructor'])
+    .order('created_at', { ascending: true })
+    .limit(20)
+    
+  if (error) {
+    console.error("Error fetching users:", error);
+    throw new Error(error.message);
   }
 
-  const data: AccountApiRow[] = Array.isArray(payload?.accounts) ? payload.accounts : [];
-
-  const users: UserProfile[] = [];
-
-  data.forEach((user: AccountApiRow) => {
-    users.push(new UserProfile({
+  const userProfile: UserProfile[] = data.map((user: UserProfile) => {
+    return {
       user_id: user.user_id,
       first_name: user.first_name,
       middle_name: user.middle_name,
       last_name: user.last_name,
       email: user.email,
-      role: toUserRole(user.role),
-      prc_exam_type: user.prc_exam_type ?? null,
-      dateCreated: user.created_at ?? undefined,
-    }));
-  });
+      role: user.role,
+      examinee_id_number: user.examinee_id_number,
+    }
+  })
 
-  return users;
+  return userProfile;
 }
 
+// Custom hook to fetch all users in an institution
+const useFetchUsers = (institution_id: string) => {
+  const queryClient = useQueryClient()
 
-export const useFetchUsers = () => {
   // A query to get all users
   const { data: users, isLoading, refetch } = useQuery({
-    queryKey: ['profiles'],
-    queryFn: fetchUsers,
+    queryKey: ['profiles', institution_id],
+    queryFn: () => fetchUsers(institution_id),
     // We can set a reasonable stale time for the users data, since it may change (e.g. if an admin creates a new account)
     staleTime: 5 * 60 * 1000 // 5 minutes
   })
 
+  // Set up a listener for auth state changes to invalidate the user profile query when the auth user changes (e.g. on sign-in or sign-out)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        // Only invalidate (refetch) when a user explicitly signs in or updates their user record
+        queryClient.invalidateQueries({ queryKey: ['profiles', institution_id] });
+      } 
+      
+      else if (event === "SIGNED_OUT") {
+        // Completely remove the cached profiles from memory for security
+        queryClient.removeQueries({ queryKey: ['profiles', institution_id] });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient, institution_id]);
+
   return { users: users ?? [], isLoading, refetch };
 }
+
+export { useFetchUsers }
