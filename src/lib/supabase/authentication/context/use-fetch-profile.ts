@@ -1,56 +1,44 @@
 import supabase from "@/lib/supabase/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserProfile } from "@/model/user-profile";
+import type { UserProfile } from "@/model/user-profile";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { useEffect } from "react";
 
 // Helper function to fetch the user profile from Supabase based on the authenticated user
 const getProfile = async (user: AuthUser | null | undefined): Promise<UserProfile | null | undefined> => {
+  // If there is no authenticated user, return null
   if (!user) return null;
 
-  const email = user.email ?? "";
-  const emailNamePart = email.split("@")[0] ?? "";
-  const normalizedName = emailNamePart.replace(/[._-]+/g, " ").trim();
-  const fallbackFirstName = user.user_metadata?.first_name ?? normalizedName.split(" ")[0] ?? "User";
-  const derivedLastName = normalizedName.split(" ").slice(1).join(" ");
-  const fallbackLastName = (user.user_metadata?.last_name ?? derivedLastName) || "Member";
-
-  const buildFallbackProfile = () => new UserProfile({
-    user_id: user.id,
-    first_name: fallbackFirstName,
-    middle_name: null,
-    last_name: fallbackLastName,
-    email,
-    role: "Student",
-  });
-
-
-  const { data: profileData, error } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select(
-      'first_name, middle_name, last_name, email, role'
+      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number"
     )
     .eq('user_id', user.id)
-    .maybeSingle();
+    .maybeSingle()
 
-  
+  // If there is no user profile, return null
+  if (!data) {
+    return null;
+  }
+
+  // If there is an error fetching the user profile, log it
   if (error) {
     console.error("Error fetching user profile:", error);
-    throw new Error(error.message);
   }
 
-  if (!profileData) {
-    return buildFallbackProfile();
+  // Map the data to a UserProfile object
+  const userProfile: UserProfile = {
+    user_id: data.user_id,
+    first_name: data.first_name,
+    middle_name: data.middle_name,
+    last_name: data.last_name,
+    email: data.email,
+    role: data.role,
+    examinee_id_number: data.examinee_id_number,
   }
 
-  return profileData ? new UserProfile({
-    user_id: user.id,
-    first_name: profileData.first_name,
-    middle_name: profileData.middle_name,
-    last_name: profileData.last_name,
-    email: profileData.email,
-    role: profileData.role,
-  }) : buildFallbackProfile();
+  return userProfile
 }
 
 // Custom hook to fetch the authenticated user's profile using React Query
@@ -80,10 +68,16 @@ const useFetchProfile = () => {
 
   // Set up a listener for auth state changes to invalidate the user profile query when the auth user changes (e.g. on sign-in or sign-out)
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       // When the auth state changes, we want to invalidate the user profile query so it will refetch with the new auth user (or null if signed out)
-      queryClient.invalidateQueries({ queryKey: ['authUser'] });
-      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+
+      if(event === "SIGNED_IN" || event === "USER_UPDATED") {
+        queryClient.invalidateQueries({ queryKey: ['authUser'] });
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      } else if(event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ['authUser'] });
+        queryClient.removeQueries({ queryKey: ['userProfile'] });
+      }
     });
 
     return () => {
@@ -94,7 +88,7 @@ const useFetchProfile = () => {
   return {
     authUser,
     userProfile,
-    isLoading: isAuthUserLoading || isUserProfileLoading
+    isLoading: isAuthUserLoading || (!!authUser && isUserProfileLoading)
   }
 }
 
