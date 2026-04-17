@@ -13,7 +13,7 @@ const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      "first_name, middle_name, last_name, email, role, examinee_id_number"
+      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id"
     )
     .eq('institution_id', institution_id)
     .in('role', ['Student', 'Instructor'])
@@ -25,7 +25,7 @@ const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
     throw new Error(error.message);
   }
 
-  const userProfile: UserProfile[] = data.map((user: UserProfile) => {
+  const userProfile: UserProfile[] = (data || []).map((user: any) => {
     return {
       user_id: user.user_id,
       first_name: user.first_name,
@@ -33,6 +33,7 @@ const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
       last_name: user.last_name,
       email: user.email,
       role: user.role,
+      institution_id: user.institution_id,
       examinee_id_number: user.examinee_id_number,
     }
   })

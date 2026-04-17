@@ -12,7 +12,7 @@ const getProfile = async (user: AuthUser | null | undefined): Promise<UserProfil
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number"
+      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id"
     )
     .eq('user_id', user.id)
     .maybeSingle()
@@ -35,6 +35,7 @@ const getProfile = async (user: AuthUser | null | undefined): Promise<UserProfil
     last_name: data.last_name,
     email: data.email,
     role: data.role,
+    institution_id: data.institution_id,
     examinee_id_number: data.examinee_id_number,
   }
 
