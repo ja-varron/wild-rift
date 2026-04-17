@@ -7,6 +7,6 @@ export interface UserProfile {
   role: "Instructor" | "Student" | "Admin"
   created_at?: string
   updated_at?: string
-  institution_id?: string
+  institution_id: string
   examinee_id_number?: string | null
 }
