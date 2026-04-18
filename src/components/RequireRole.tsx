@@ -17,8 +17,10 @@ export default function RequireRole({
   
 	if (isLoading) return null;
 
-	const userRole = userProfile?.getUserRole?.toLowerCase();
-	if (!userRole || !allowedRoles.map(role => role.toLowerCase()).includes(userRole)) {
+	const userRole = userProfile?.getUserRole?.toLowerCase() ?? '';
+	const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
+
+	if (!userRole || !normalizedAllowedRoles.includes(userRole)) {
 		return <Navigate to="/" replace />;
 	}
 

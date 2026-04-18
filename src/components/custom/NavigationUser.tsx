@@ -33,12 +33,24 @@ import { toast } from "sonner"
 type User = {
   name: string
   email: string
-  avatar: string
+  avatar?: string
+}
+
+function initialsFromName(name: string): string {
+  const parts = name
+    .split(" ")
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  if (parts.length === 0) return "U"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
 }
 
 const NavigationUser = ({ user }: { user: User }) => {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
+  const initials = initialsFromName(user.name)
 
   async function handleLogout() {
     try {
@@ -48,7 +60,7 @@ const NavigationUser = ({ user }: { user: User }) => {
         return
       }
       navigate("/login", { replace: true })
-    } catch (err) {
+    } catch {
       toast.error("Failed to sign out")
     }
   }
@@ -63,8 +75,8 @@ const NavigationUser = ({ user }: { user: User }) => {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                {user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
+                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -84,8 +96,8 @@ const NavigationUser = ({ user }: { user: User }) => {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  {user.avatar ? <AvatarImage src={user.avatar} alt={user.name} /> : null}
+                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>

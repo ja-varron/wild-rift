@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
+import { supabase } from "@/lib/supabase/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,9 +20,24 @@ import type { ScannedPaper } from "../types"
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 interface ScannerPanelProps {
+  examId: number
+  answerKey?: string[]
   scannedPapers: ScannedPaper[]
   examTitle: string
-  onCapture?: (paper: ScannedPaper) => void
+  onCapture?: (
+    paper: ScannedPaper,
+    scanResult?: {
+      resultId: string
+      studentId?: string | null
+      studentName?: string | null
+      createdAt?: string
+      grading?: {
+        totalItems?: number
+        scorePercent?: number
+        passed?: boolean
+      }
+    },
+  ) => void
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -69,6 +85,8 @@ function nowLabel(): string {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ScannerPanel({
+  examId,
+  answerKey,
   scannedPapers,
   examTitle,
   onCapture,
@@ -79,6 +97,7 @@ export function ScannerPanel({
   const [isCapturing, setIsCapturing] = useState(false)
   const [localPapers, setLocalPapers] = useState<ScannedPaper[]>([])
   const [captureFlash, setCaptureFlash] = useState(false)
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -128,7 +147,6 @@ export function ScannerPanel({
     canvas.height = video.videoHeight
     canvas.getContext("2d")?.drawImage(video, 0, 0)
 
-    // Simulate OMR processing delay
     const newId = nextIdRef.current++
     const processingPaper: ScannedPaper = {
       id: newId,
@@ -140,22 +158,59 @@ export function ScannerPanel({
 
     setLocalPapers((prev) => [processingPaper, ...prev])
 
-    await new Promise((r) => setTimeout(r, 2200))
+    try {
+      const canvasBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob)
+          else reject(new Error("Failed to capture image from camera"))
+        }, "image/jpeg", 0.92)
+      })
 
-    // 90 % chance graded, 10 % error (simulated OMR result)
-    const success = Math.random() > 0.1
-    const gradedPaper: ScannedPaper = {
-      ...processingPaper,
-      studentName: success ? `Student #${newId - 999}` : processingPaper.studentName,
-      studentId: success ? `ID-${String(newId).padStart(5, "0")}` : "—",
-      status: success ? "Graded" : "Error",
+      const formData = new FormData()
+      formData.append("sheet", canvasBlob, `scan-${Date.now()}.jpg`)
+      if (answerKey && answerKey.length > 0) {
+        formData.append("answerKey", JSON.stringify(answerKey))
+      }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {}
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/exams/${examId}/scan`, {
+        method: "POST",
+        headers,
+        body: formData,
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(payload?.error || "Scan request failed")
+      }
+
+      const gradedPaper: ScannedPaper = {
+        ...processingPaper,
+        studentName: payload?.studentName || `Student #${newId - 999}`,
+        studentId: payload?.studentId || `ID-${String(newId).padStart(5, "0")}`,
+        scannedAt: payload?.createdAt ? new Date(payload.createdAt).toLocaleString() : processingPaper.scannedAt,
+        status: "Graded",
+      }
+
+      setLocalPapers((prev) => prev.map((p) => (p.id === newId ? gradedPaper : p)))
+      onCapture?.(gradedPaper, payload)
+    } catch (error) {
+      const errorPaper: ScannedPaper = {
+        ...processingPaper,
+        studentName: "Scan failed",
+        studentId: "—",
+        status: "Error",
+      }
+      setLocalPapers((prev) => prev.map((p) => (p.id === newId ? errorPaper : p)))
+      console.error("Scanner capture failed:", error)
+    } finally {
+      setIsCapturing(false)
     }
-
-    setLocalPapers((prev) =>
-      prev.map((p) => (p.id === newId ? gradedPaper : p))
-    )
-    onCapture?.(gradedPaper)
-    setIsCapturing(false)
   }
 
   // ── Merged papers list ──

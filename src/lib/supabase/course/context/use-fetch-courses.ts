@@ -41,8 +41,8 @@ export const useFetchCourses = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'courses' },
-        (payload) => {
-          console.log('Change received!', payload);
+        () => {
+
           queryClient.invalidateQueries({ queryKey: ['courses'] });
         }
       )

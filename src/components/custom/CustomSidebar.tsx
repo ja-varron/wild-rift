@@ -10,11 +10,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { NavigationUser } from "./NavigationUser"
 import type { NavigationItem } from "./navigation-item"
+import { useFetchProfile } from "@/lib/supabase/authentication/context/use-fetch-profile"
 
 type NavigationItemProps = {
   navItems: NavigationItem[]
@@ -25,23 +26,25 @@ type NavigationItemProps = {
 const CustomSidebar = ({ navItems }: NavigationItemProps) => {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { userProfile, isLoading } = useFetchProfile()
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" className="size-8" />
-          <span className="font-semibold text-sm truncate group-data-[collapsible=icon]:hidden">
-            Tuon
-          </span>
+      <SidebarHeader className="border-b h-16 px-4 py-0 group-data-[collapsible=icon]:px-0">
+        <div className="flex h-full w-full items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
+          <div className="flex min-w-0 items-center gap-3 group-data-[collapsible=icon]:hidden">
+            <img src="/logo.png" alt="Tuon logo" className="size-10 shrink-0 object-contain" />
+            <span className="truncate text-lg font-semibold tracking-tight leading-none">
+              Tuon
+            </span>
+          </div>
+          <SidebarTrigger className="h-10 w-10 shrink-0" />
         </div>
       </SidebarHeader>
 
-      <SidebarSeparator />
-
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden text-xs text-muted-foreground px-2">
+          <SidebarGroupLabel className="px-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -55,7 +58,7 @@ const CustomSidebar = ({ navItems }: NavigationItemProps) => {
                       <TooltipTrigger asChild>
                         <SidebarMenuButton
                           isActive={isActive}
-                          className="gap-2"
+                          className="h-10 gap-2.5"
                           onClick={() => navigate(item.path)}
                         >
                           <item.icon className="size-4 shrink-0" />
@@ -74,9 +77,8 @@ const CustomSidebar = ({ navItems }: NavigationItemProps) => {
 
       <SidebarFooter className="p-3">
         <NavigationUser user={{
-          name: "John Doe",
-          email: "john.doe@vsu.edu.ph",
-          avatar: "https://example.com/avatar.jpg"
+          name: userProfile?.fullName ?? (isLoading ? "Loading..." : "User"),
+          email: userProfile?.getEmailAddress ?? "...",
         }} />
       </SidebarFooter>
     </Sidebar>

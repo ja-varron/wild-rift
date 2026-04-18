@@ -52,8 +52,8 @@ export const useCourseRoleCount = (courseId: string) => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_course', filter: `course_id=eq.${courseId}` },
-        (payload) => {
-          console.log('User-course change received!', payload)
+        () => {
+
           queryClient.invalidateQueries({ queryKey: ['courseRoleCount', courseId] })
         }
       )

@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Card,
@@ -9,97 +10,14 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
   Users,
-  BookOpen,
   GraduationCap,
   UserCog,
   Activity,
-  UserPlus,
-  FolderPlus,
 } from "lucide-react"
 import { SummaryStatsCard } from "@/components/custom/SummaryStatsCard"
-
-// ── Static data ────────────────────────────────────────────────────────────────
-
-const summaryStats = [
-  {
-    label: "Total Users",
-    value: "182",
-    sub: "+18 this month",
-    icon: Users,
-  },
-  {
-    label: "Students",
-    value: "156",
-    sub: "+14 new",
-    icon: GraduationCap,
-  },
-  {
-    label: "Instructors",
-    value: "26",
-    sub: "+4 new",
-    icon: UserCog,
-  },
-  {
-    label: "Courses",
-    value: "8",
-    sub: "24 subjects",
-    icon: BookOpen,
-  },
-]
-
-const recentActivity = [
-  {
-    id: 1,
-    description: "Created student account for Maria Santos",
-    type: "account",
-    time: "1 hour ago",
-  },
-  {
-    id: 2,
-    description: "Added new course: BS Civil Engineering Review",
-    type: "course",
-    time: "3 hours ago",
-  },
-  {
-    id: 3,
-    description: "Created instructor account for Dr. Reyes",
-    type: "account",
-    time: "Yesterday",
-  },
-  {
-    id: 4,
-    description: "Updated subjects for BSCS Licensure Review",
-    type: "course",
-    time: "Yesterday",
-  },
-  {
-    id: 5,
-    description: "Created 12 student accounts via bulk import",
-    type: "account",
-    time: "2 days ago",
-  },
-  {
-    id: 6,
-    description: "Added topic 'Pharmacology' to Nursing Review",
-    type: "course",
-    time: "3 days ago",
-  },
-]
-
-const recentAccounts = [
-  { id: 1, name: "Maria Santos", role: "Student", course: "BSCS", date: "Mar 3, 2026" },
-  { id: 2, name: "Dr. Ana Reyes", role: "Instructor", course: "—", date: "Mar 2, 2026" },
-  { id: 3, name: "Carlos Tan", role: "Student", course: "BSN", date: "Mar 1, 2026" },
-  { id: 4, name: "Grace Lim", role: "Student", course: "BSIT", date: "Feb 28, 2026" },
-  { id: 5, name: "Ben Rivera", role: "Student", course: "BSCS", date: "Feb 27, 2026" },
-]
+import { useFetchUsers } from "@/lib/supabase/authentication/context/use-fetch-users"
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function activityIcon(type: string) {
-  if (type === "account") return UserPlus
-  return FolderPlus
-}
 
 function roleBadge(role: string) {
   if (role === "Instructor")
@@ -110,6 +28,54 @@ function roleBadge(role: string) {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const AdminDashboardPage = () => {
+  const { users } = useFetchUsers()
+  
+  // ── Calculate stats from real data ──
+  const studentCount = useMemo(() => users.filter(u => u.getUserRole === "Student").length, [users])
+  const instructorCount = useMemo(() => users.filter(u => u.getUserRole === "Instructor").length, [users])
+  const totalUsers = users.length
+  
+  const summaryStats = useMemo(() => [
+    {
+      label: "Total Users",
+      value: totalUsers.toString(),
+      sub: totalUsers > 0 ? "Active accounts" : "No users yet",
+      icon: Users,
+    },
+    {
+      label: "Students",
+      value: studentCount.toString(),
+      sub: studentCount > 0 ? `${((studentCount / totalUsers) * 100).toFixed(0)}% of total` : "No students",
+      icon: GraduationCap,
+    },
+    {
+      label: "Instructors",
+      value: instructorCount.toString(),
+      sub: instructorCount > 0 ? `${((instructorCount / totalUsers) * 100).toFixed(0)}% of total` : "No instructors",
+      icon: UserCog,
+    },
+    {
+      label: "System Status",
+      value: "Active",
+      sub: "All systems operational",
+      icon: Activity,
+    },
+  ], [totalUsers, studentCount, instructorCount])
+  
+  // ── Get recent users (last 5) ──
+  const recentAccounts = useMemo(() => {
+    return users.slice(-5).reverse().map((user) => ({
+      id: user.getUserId,
+      name: `${user.getFirstName} ${user.getLastName}`,
+      role: user.getUserRole,
+      date: new Date(user.getDateCreated).toLocaleDateString("en-US", { 
+        month: "short", 
+        day: "numeric", 
+        year: "numeric" 
+      }),
+    }))
+  }, [users])
+
   return (
     <ScrollArea className="flex-1">
       <main className="p-6 space-y-6 max-w-6xl mx-auto w-full">
@@ -118,7 +84,7 @@ const AdminDashboardPage = () => {
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Manage the VSU Review Center system — accounts, courses, and platform overview.
+            Manage the VSU Review Center system — accounts and platform overview.
           </p>
         </div>
 
@@ -132,32 +98,36 @@ const AdminDashboardPage = () => {
         {/* ── Two-column section ── */}
         <div className="grid gap-6 lg:grid-cols-2">
 
-          {/* Recent Activity */}
+          {/* System Information */}
           <Card>
             <CardHeader className="border-b pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+                <CardTitle className="text-base font-semibold">System Information</CardTitle>
                 <Activity className="size-4 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {recentActivity.map((item, idx) => {
-                const Icon = activityIcon(item.type)
-                return (
-                  <div key={item.id}>
-                    <div className="flex items-start gap-3 px-5 py-3">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted mt-0.5">
-                        <Icon className="size-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm">{item.description}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
-                      </div>
-                    </div>
-                    {idx < recentActivity.length - 1 && <Separator />}
-                  </div>
-                )
-              })}
+              <div className="space-y-0">
+                <div className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm">Total Accounts</span>
+                  <Badge variant="secondary">{totalUsers}</Badge>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm">Student Accounts</span>
+                  <Badge variant="outline">{studentCount}</Badge>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm">Instructor Accounts</span>
+                  <Badge variant="outline">{instructorCount}</Badge>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm">System Status</span>
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300">Active</Badge>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -170,25 +140,33 @@ const AdminDashboardPage = () => {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {recentAccounts.map((account, idx) => (
-                <div key={account.id}>
-                  <div className="flex items-center justify-between px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                        {account.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{account.name}</p>
-                        <p className="text-xs text-muted-foreground">{account.course} · {account.date}</p>
-                      </div>
-                    </div>
-                    <Badge className={roleBadge(account.role)} variant="secondary">
-                      {account.role}
-                    </Badge>
-                  </div>
-                  {idx < recentAccounts.length - 1 && <Separator />}
+              {recentAccounts.length === 0 ? (
+                <div className="px-5 py-8 text-center text-muted-foreground text-sm">
+                  No accounts created yet
                 </div>
-              ))}
+              ) : (
+                <>
+                  {recentAccounts.map((account, idx) => (
+                    <div key={account.id}>
+                      <div className="flex items-center justify-between px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                            {account.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{account.name}</p>
+                            <p className="text-xs text-muted-foreground">{account.date}</p>
+                          </div>
+                        </div>
+                        <Badge className={roleBadge(account.role)} variant="secondary">
+                          {account.role}
+                        </Badge>
+                      </div>
+                      {idx < recentAccounts.length - 1 && <Separator />}
+                    </div>
+                  ))}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
