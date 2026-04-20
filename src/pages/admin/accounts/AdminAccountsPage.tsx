@@ -25,6 +25,8 @@ import { supabase } from "@/lib/supabase/supabase"
 import { toast } from "sonner"
 import { useFetchUsers } from "@/lib/supabase/authentication/context/use-fetch-users"
 import { useFetchCourses } from "@/lib/supabase/course/context/use-fetch-courses"
+import { generateRandomPassword } from "@/lib/password-generator"
+import { sendWelcomeEmail } from "@/lib/supabase/email/email"
 
 
 // ── Empty form state ───────────────────────────────────────────────────────────
@@ -157,7 +159,10 @@ const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | 
         }
       }
 
-      toast.success("Account created successfully!")
+      // Send welcome email using the Edge Function2
+      sendWelcomeEmail(form.email, generateRandomPassword())
+
+      refetch()
       setDialogOpen(false)
       setForm(emptyForm)
       setEditingId(null)
