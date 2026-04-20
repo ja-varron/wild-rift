@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase, supabaseAdmin } from '../supabase';
 
 export type OAuthProvider = 'google' | 'github' | 'gitlab' | 'azure' | 'facebook';
 
@@ -90,21 +90,11 @@ export async function sendPasswordReset(email: string, redirectTo?: string) {
   return { data, error };
 }
 
-// export function onAuthStateChange(callback: (event: string, session: any) => void) {
-//   return supabase.auth.onAuthStateChange((event, session) => callback(event, session));
-// }
-
-// export async function updateUser(updates: { email?: string; password?: string; data?: Record<string, any> }) {
-//   const { data, error } = await supabase.auth.updateUser({
-//     email: updates.email,
-//     password: updates.password,
-//     data: updates.data,
-//   } as any);
-//   return { data, error };
-// }
-
-
-// Sign up an account for student and instructor by admin for a specific role
+// Sign up an account for student or instructor on behalf of an admin.
+// Uses the supabaseAdmin client (service role key) so:
+//   - Email confirmation is skipped automatically.
+//   - The logged-in admin's own session is never touched.
+//   - No Edge Function or external server is required.
 export async function adminSignUp(
   email: string,
   password: string,
@@ -113,69 +103,34 @@ export async function adminSignUp(
     middleName?: string;
     lastName?: string;
     role?: string;
-    prcExamType?: string;
   },
 ) {
-  return await createUserViaBackend(email, password, profile);
-}
-
-// Call backend API to create user with admin privileges
-async function createUserViaBackend(
-  email: string,
-  password: string,
-  profile?: {
-    firstName?: string;
-    middleName?: string;
-    lastName?: string;
-    role?: string;
-    prcExamType?: string;
-  },
-) {
-  try {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-    const response = await fetch(`${backendUrl}/api/auth/create-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        firstName: profile?.firstName ?? "",
-        middleName: profile?.middleName ?? "",
-        lastName: profile?.lastName ?? "",
-        role: profile?.role ?? "Student",
-        prcExamType: profile?.prcExamType ?? "",
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      const error = {
-        message: errorData.error || `Failed to create user (${response.status})`,
-        status: response.status,
-      };
-      console.error('Error creating user:', error);
-      return { data: null, error };
-    }
-
-    const raw = await response.json();
-
-    // Normalize backend payload to mirror Supabase auth shape expected by callers.
-    const data = {
-      ...raw,
-      user: raw?.user ?? {
-        id: raw?.user_id,
-        email: raw?.email ?? email,
-      },
+  if (!supabaseAdmin) {
+    return {
+      data: null,
+      error: new Error(
+        'Admin client is not configured. Add VITE_SUPABASE_SERVICE_ROLE_KEY to your .env.local.',
+      ),
     };
+  }
 
-    return { data, error: null };
-  } catch (err) {
-    const error = {
-      message: err instanceof Error ? err.message : 'Unknown error creating user',
-    };
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      first_name: profile?.firstName ?? '',
+      middle_name: profile?.middleName ?? '',
+      last_name: profile?.lastName ?? '',
+      role: profile?.role ?? 'Student'
+    },
+  });
+
+  if (error) {
     console.error('Error creating user:', error);
     return { data: null, error };
   }
+
+  return { data, error: null };
 }
+

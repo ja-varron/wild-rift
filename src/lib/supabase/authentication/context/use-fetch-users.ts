@@ -1,6 +1,6 @@
 import type { UserProfile } from "@/model/user-profile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import supabase from "@/lib/supabase/supabase";
+import { supabase } from "@/lib/supabase/supabase";
 import { useEffect } from "react";
 
 // Helper function to fetch all users in an institution
@@ -13,19 +13,33 @@ const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id"
+      `user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id,
+       course_enrollment(
+         courses(course_id, course_name)
+       )`
     )
     .eq('institution_id', institution_id)
     .in('role', ['Student', 'Instructor'])
     .order('created_at', { ascending: true })
-    .limit(20)
     
   if (error) {
     console.error("Error fetching users:", error);
     throw new Error(error.message);
   }
 
-  const userProfile: UserProfile[] = (data || []).map((user: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userProfiles: UserProfile[] = (data || []).map((user: any) => {
+    // Unpack course from the nested array structure Supabase returns for many-to-many joins
+    const firstCourseItem = Array.isArray(user.course_enrollment) && user.course_enrollment.length > 0 
+      ? user.course_enrollment[0] 
+      : user.course_enrollment;
+    
+    // Safely extract the `courses` object
+    const courseObj = firstCourseItem?.courses ? {
+      course_id: firstCourseItem.courses.course_id,
+      course_name: firstCourseItem.courses.course_name
+    } : null;
+
     return {
       user_id: user.user_id,
       first_name: user.first_name,
@@ -35,10 +49,11 @@ const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
       role: user.role,
       institution_id: user.institution_id,
       examinee_id_number: user.examinee_id_number,
+      course: courseObj,
     }
   })
 
-  return userProfile;
+  return userProfiles;
 }
 
 // Custom hook to fetch all users in an institution
