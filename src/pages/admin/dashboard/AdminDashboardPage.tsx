@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { SummaryStatsCard } from "@/components/custom/SummaryStatsCard"
 import { useFetchUsers } from "@/lib/supabase/authentication/context/use-fetch-users"
+import type { UserProfile } from "@/model/user-profile"
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -27,12 +28,12 @@ function roleBadge(role: string) {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const AdminDashboardPage = () => {
-  const { users } = useFetchUsers()
+const AdminDashboardPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const { users } = useFetchUsers(userProfile?.institution_id!)
   
   // ── Calculate stats from real data ──
-  const studentCount = useMemo(() => users.filter(u => u.getUserRole === "Student").length, [users])
-  const instructorCount = useMemo(() => users.filter(u => u.getUserRole === "Instructor").length, [users])
+  const studentCount = useMemo(() => users.filter(u => u.role === "Student").length, [users])
+  const instructorCount = useMemo(() => users.filter(u => u.role === "Instructor").length, [users])
   const totalUsers = users.length
   
   const summaryStats = useMemo(() => [
@@ -65,14 +66,16 @@ const AdminDashboardPage = () => {
   // ── Get recent users (last 5) ──
   const recentAccounts = useMemo(() => {
     return users.slice(-5).reverse().map((user) => ({
-      id: user.getUserId,
-      name: `${user.getFirstName} ${user.getLastName}`,
-      role: user.getUserRole,
-      date: new Date(user.getDateCreated).toLocaleDateString("en-US", { 
-        month: "short", 
-        day: "numeric", 
-        year: "numeric" 
-      }),
+      id: user.user_id,
+      name: `${user.first_name} ${user.last_name}`,
+      role: user.role,
+      date: user.created_at 
+        ? new Date(user.created_at).toLocaleDateString("en-US", { 
+            month: "short", 
+            day: "numeric", 
+            year: "numeric" 
+          })
+        : "N/A",
     }))
   }, [users])
 
