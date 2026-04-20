@@ -26,7 +26,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useNavigate } from "react-router-dom"
 import { signOut } from "@/lib/supabase/authentication/auth"
 import { toast } from "sonner"
 
@@ -49,7 +48,6 @@ function initialsFromName(name: string): string {
 
 const NavigationUser = ({ user }: { user: User }) => {
   const { isMobile } = useSidebar()
-  const navigate = useNavigate()
   const initials = initialsFromName(user.name)
 
   async function handleLogout() {
@@ -59,7 +57,9 @@ const NavigationUser = ({ user }: { user: User }) => {
         toast.error(error.message ?? "Failed to sign out")
         return
       }
-      navigate("/login", { replace: true })
+      // The Router handles navigation reactively:
+      // signOut() → onAuthStateChange(SIGNED_OUT) → setQueryData(['authUser'], null)
+      // → authUser = null → isLoggedIn = false → Router redirects to "/"
     } catch {
       toast.error("Failed to sign out")
     }
@@ -109,7 +109,7 @@ const NavigationUser = ({ user }: { user: User }) => {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => navigate("/profile")}>
+              <DropdownMenuItem>
                 <IconUserCircle />
                 Profile
               </DropdownMenuItem>
