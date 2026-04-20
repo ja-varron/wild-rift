@@ -25,7 +25,7 @@ interface CourseDialogProps {
   onSave: (data: CourseForm) => void
 }
 
-const CourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDialogProps) => {
+const AddCourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDialogProps) => {
   const isEditing = !!initialData
   const [form, setForm] = useState<CourseForm>(
     initialData ?? { course_name: "", description: "" }
@@ -83,4 +83,4 @@ const CourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDialogP
   )
 }
 
-export default CourseDialog
+export default AddCourseDialog

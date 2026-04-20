@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,22 +18,29 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    setErrorDetails(null)
     try {
-      const { error } = await signIn(email.trim(), password)
+      const { error, redirectTo } = await signIn(email.trim(), password)
       if (error) {
-        toast.error(error.message ?? "Sign in failed")
+        const message = error.message ?? "Sign in failed"
+        setErrorDetails(message)
+        toast.error(message)
         return
       }
       toast.success("Signed in successfully!")
-      // The router will handle redirection.
+      navigate(redirectTo ?? "/student", { replace: true })
     } catch (err) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred during sign-in."
+      setErrorDetails(message)
       toast.error("An unexpected error occurred during sign-in.")
       console.error("Sign-in error:", err)
     } finally {
@@ -103,6 +110,25 @@ export function LoginForm({
                   {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </Field>
+
+              <p className="text-sm text-center text-muted-foreground">
+                No account yet?{" "}
+                <Link to="/account-request" className="text-teal-700 hover:text-teal-800 underline underline-offset-2">
+                  Request an account
+                </Link>
+              </p>
+
+              {errorDetails && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <p className="font-semibold">Login failed</p>
+                  <p className="mt-1 break-words">{errorDetails}</p>
+                  <ul className="mt-2 list-disc pl-5 text-xs text-red-700/90">
+                    <li>Check your email and password first.</li>
+                    <li>If the message starts with [Backend Auth], verify backend server is running and VITE_OMR_API_URL is correct.</li>
+                    <li>If the message starts with [Supabase Auth], verify Supabase credentials and user account status.</li>
+                  </ul>
+                </div>
+              )}
             </FieldGroup>
           </form>
 

@@ -55,9 +55,10 @@ Before you begin, ensure you have:
 3. **Environment Setup**
    Create a `.env.local` file in the root directory with the following variables:
    ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   NEXT_PUBLIC_BASE_URL=http://localhost:5173
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_BASE_URL=http://localhost:5173
+   VITE_OMR_API_URL=http://localhost:8000/api
    ```
 
 
@@ -103,8 +104,11 @@ Before you begin, ensure you have:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous key | Yes |
+| `VITE_SUPABASE_URL` | Your Supabase project URL | Yes |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anonymous key | Yes |
+| `VITE_OMR_API_URL` | OMR backend API base URL | Yes |
+
+For backward compatibility, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are also supported.
 
 
 ## 🚀 Deployment

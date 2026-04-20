@@ -24,6 +24,25 @@ interface StudentScoresTableProps {
   onUpdateFeedback: (studentId: number, feedback: string) => void
 }
 
+type SortColumn = "name" | "score"
+
+function SortIcon({
+  col,
+  sortBy,
+  sortDir,
+}: {
+  col: SortColumn
+  sortBy: SortColumn
+  sortDir: "asc" | "desc"
+}) {
+  if (sortBy !== col) return null
+  return sortDir === "asc" ? (
+    <ChevronUp className="size-3" />
+  ) : (
+    <ChevronDown className="size-3" />
+  )
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function StudentScoresTable({
@@ -33,7 +52,7 @@ export function StudentScoresTable({
   onUpdateFeedback,
 }: StudentScoresTableProps) {
   const [search, setSearch] = useState("")
-  const [sortBy, setSortBy] = useState<"name" | "score">("score")
+  const [sortBy, setSortBy] = useState<SortColumn>("score")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [draftFeedback, setDraftFeedback] = useState<Record<number, string>>({})
@@ -52,22 +71,13 @@ export function StudentScoresTable({
 
   const passedCount = results.filter((r) => r.passed).length
 
-  function toggleSort(col: "name" | "score") {
+  function toggleSort(col: SortColumn) {
     if (sortBy === col) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     } else {
       setSortBy(col)
       setSortDir(col === "score" ? "desc" : "asc")
     }
-  }
-
-  function SortIcon({ col }: { col: "name" | "score" }) {
-    if (sortBy !== col) return null
-    return sortDir === "asc" ? (
-      <ChevronUp className="size-3" />
-    ) : (
-      <ChevronDown className="size-3" />
-    )
   }
 
   // Empty state
@@ -122,7 +132,7 @@ export function StudentScoresTable({
                   onClick={() => toggleSort("name")}
                 >
                   <span className="flex items-center gap-1">
-                    Student <SortIcon col="name" />
+                    Student <SortIcon col="name" sortBy={sortBy} sortDir={sortDir} />
                   </span>
                 </TableHead>
                 <TableHead>Student ID</TableHead>
@@ -131,7 +141,7 @@ export function StudentScoresTable({
                   onClick={() => toggleSort("score")}
                 >
                   <span className="flex items-center gap-1 justify-end">
-                    Score <SortIcon col="score" />
+                    Score <SortIcon col="score" sortBy={sortBy} sortDir={sortDir} />
                   </span>
                 </TableHead>
                 <TableHead className="text-right">%</TableHead>

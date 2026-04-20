@@ -90,3 +90,35 @@ export class Exam {
     this.topics = topics
   }
 }
+
+export class ExamResult {
+  id: number;
+  title: string;
+  date: string;
+  score: number;
+  total_items: number;
+  passed: boolean;
+  attempted: boolean;
+
+  constructor({ id, title, date, score, total_items, passed, attempted }: {
+    id: number;
+    title: string;
+    date: string;
+    score: number;
+    total_items: number;
+    passed: boolean;
+    attempted?: boolean;
+  }) {
+    this.id = id;
+    this.title = title;
+    this.date = date;
+    this.score = score;
+    this.total_items = total_items;
+    this.passed = passed;
+    this.attempted = attempted ?? true;
+  }
+
+  get percentage(): number {
+    return Math.round((this.score / this.total_items) * 100);
+  }
+}

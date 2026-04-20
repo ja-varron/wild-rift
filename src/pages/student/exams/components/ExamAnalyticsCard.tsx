@@ -24,6 +24,7 @@ interface ExamRecord {
   score: number
   totalItems: number
   passed: boolean
+  attempted?: boolean
   topics: TopicScore[]
   feedback: FeedbackItem[]
   recommendation: string
@@ -53,7 +54,9 @@ function feedbackBg(type: FeedbackItem["type"]) {
 }
 
 const ExamAnalyticsCard = ({ exam }: { exam: ExamRecord }) => {
-  const pct = Math.round((exam.score / exam.totalItems) * 100)
+  const isAttempted = exam.attempted ?? true
+  const pct = isAttempted ? Math.round((exam.score / exam.totalItems) * 100) : 0
+  const hasTopicAnalytics = isAttempted && exam.topics.length > 0
 
   return (
     <Card className="overflow-hidden">
@@ -66,14 +69,16 @@ const ExamAnalyticsCard = ({ exam }: { exam: ExamRecord }) => {
               {exam.date} · {exam.instructor}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={exam.passed ? "default" : "destructive"}
-              className={exam.passed ? "bg-green-500 hover:bg-green-500" : ""}
-            >
-              {exam.passed ? "Passed" : "Failed"}
-            </Badge>
-          </div>
+          {isAttempted ? (
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={exam.passed ? "default" : "destructive"}
+                className={exam.passed ? "bg-green-500 hover:bg-green-500" : ""}
+              >
+                {exam.passed ? "Passed" : "Failed"}
+              </Badge>
+            </div>
+          ) : null}
         </div>
       </CardHeader>
 
@@ -99,29 +104,29 @@ const ExamAnalyticsCard = ({ exam }: { exam: ExamRecord }) => {
               {/* Score circle */}
               <div className="relative flex size-24 shrink-0 items-center justify-center rounded-full border-4 border-muted">
                 <div
-                  className={`absolute inset-0 rounded-full border-4 ${exam.passed ? "border-teal-600" : "border-red-500"}`}
+                  className={`absolute inset-0 rounded-full border-4 ${!isAttempted ? "border-slate-400" : exam.passed ? "border-teal-600" : "border-red-500"}`}
                   style={{
                     clipPath: `polygon(50% 50%, -50% -50%, ${pct >= 50 ? "150% -50%" : `${pct * 3}% -50%`}, 150% 150%, -50% 150%)`,
                   }}
                 />
                 <div className="flex flex-col items-center leading-none">
-                  <span className={`text-2xl font-bold tabular-nums ${scoreColor(pct)}`}>
-                    {exam.score}
+                  <span className={`text-2xl font-bold tabular-nums ${isAttempted ? scoreColor(pct) : "text-muted-foreground"}`}>
+                    {isAttempted ? exam.score : "--"}
                   </span>
-                  <span className="text-xs text-muted-foreground">/{exam.totalItems}</span>
+                  <span className="text-xs text-muted-foreground">/{isAttempted ? exam.totalItems : "--"}</span>
                 </div>
               </div>
 
               <div className="flex-1 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Overall Score</span>
-                  <span className={`font-semibold ${scoreColor(pct)}`}>{pct}%</span>
+                  <span className={`font-semibold ${isAttempted ? scoreColor(pct) : "text-muted-foreground"}`}>{isAttempted ? `${pct}%` : "—"}</span>
                 </div>
                 <Progress value={pct} className={`h-3 ${progressBarColor(pct)}`} />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Passing mark: 75%</span>
-                  <span className={exam.passed ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
-                    {exam.passed ? `+${pct - 75}pts above passing` : `${75 - pct}pts below passing`}
+                  <span className={!isAttempted ? "font-medium" : exam.passed ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
+                    {!isAttempted ? "Awaiting scan" : exam.passed ? `+${pct - 75}pts above passing` : `${75 - pct}pts below passing`}
                   </span>
                 </div>
               </div>
@@ -132,65 +137,73 @@ const ExamAnalyticsCard = ({ exam }: { exam: ExamRecord }) => {
           <TabsContent value="analytics" className="px-5 pb-5 pt-4 space-y-5">
             <p className="text-sm font-medium">Performance by Topic</p>
 
-            {/* Bar-style comparison */}
-            <div className="space-y-3">
-              {exam.topics.map((t) => {
-                const tPct = Math.round((t.score / t.maxScore) * 100)
-                const diff = tPct - 75
-                return (
-                  <div key={t.topic} className="flex items-center gap-3">
-                    <span className="w-24 sm:w-44 text-xs text-muted-foreground truncate">{t.topic}</span>
-                    <div className="relative flex-1 h-6 rounded bg-muted overflow-hidden">
-                      {/* 75% line */}
-                      <div className="absolute inset-y-0 left-[75%] w-px bg-border z-10" />
-                      <div
-                        className={`h-full rounded transition-all ${tPct >= 75 ? "bg-teal-600" : tPct >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
-                        style={{ width: `${tPct}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1 w-20 justify-end">
-                      <span className={`text-xs font-semibold ${scoreColor(tPct)}`}>{tPct}%</span>
-                      {diff >= 0
-                        ? <TrendingUp className="size-3.5 text-green-500 shrink-0" />
-                        : <TrendingDown className="size-3.5 text-red-500 shrink-0" />}
-                    </div>
+            {hasTopicAnalytics ? (
+              <>
+                {/* Bar-style comparison */}
+                <div className="space-y-3">
+                  {exam.topics.map((t) => {
+                    const tPct = t.maxScore > 0 ? Math.round((t.score / t.maxScore) * 100) : 0
+                    const diff = tPct - 75
+                    return (
+                      <div key={t.topic} className="flex items-center gap-3">
+                        <span className="w-24 sm:w-44 text-xs text-muted-foreground truncate">{t.topic}</span>
+                        <div className="relative flex-1 h-6 rounded bg-muted overflow-hidden">
+                          {/* 75% line */}
+                          <div className="absolute inset-y-0 left-[75%] w-px bg-border z-10" />
+                          <div
+                            className={`h-full rounded transition-all ${tPct >= 75 ? "bg-teal-600" : tPct >= 60 ? "bg-yellow-500" : "bg-red-500"}`}
+                            style={{ width: `${tPct}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 w-20 justify-end">
+                          <span className={`text-xs font-semibold ${scoreColor(tPct)}`}>{tPct}%</span>
+                          {diff >= 0
+                            ? <TrendingUp className="size-3.5 text-green-500 shrink-0" />
+                            : <TrendingDown className="size-3.5 text-red-500 shrink-0" />}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <Separator />
+
+                {/* Summary stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-muted/50 p-3 text-center space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Highest</p>
+                    <p className="text-sm font-bold text-green-600">
+                      {Math.max(...exam.topics.map((t) => (t.maxScore > 0 ? Math.round((t.score / t.maxScore) * 100) : 0)))}%
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {exam.topics.reduce((a, b) =>
+                        b.score / Math.max(b.maxScore, 1) > a.score / Math.max(a.maxScore, 1) ? b : a
+                      ).topic.split(" ")[0]}
+                    </p>
                   </div>
-                )
-              })}
-            </div>
-
-            <Separator />
-
-            {/* Summary stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg bg-muted/50 p-3 text-center space-y-0.5">
-                <p className="text-xs text-muted-foreground">Highest</p>
-                <p className="text-sm font-bold text-green-600">
-                  {Math.max(...exam.topics.map((t) => Math.round((t.score / t.maxScore) * 100)))}%
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {exam.topics.reduce((a, b) =>
-                    b.score / b.maxScore > a.score / a.maxScore ? b : a
-                  ).topic.split(" ")[0]}
-                </p>
+                  <div className="rounded-lg bg-muted/50 p-3 text-center space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Average</p>
+                    <p className={`text-sm font-bold ${scoreColor(pct)}`}>{pct}%</p>
+                    <p className="text-xs text-muted-foreground">All topics</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3 text-center space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Lowest</p>
+                    <p className="text-sm font-bold text-red-500">
+                      {Math.min(...exam.topics.map((t) => (t.maxScore > 0 ? Math.round((t.score / t.maxScore) * 100) : 0)))}%
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {exam.topics.reduce((a, b) =>
+                        b.score / Math.max(b.maxScore, 1) < a.score / Math.max(a.maxScore, 1) ? b : a
+                      ).topic.split(" ")[0]}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground">
+                No topic analytics yet. Results will appear after the paper is scanned and submitted.
               </div>
-              <div className="rounded-lg bg-muted/50 p-3 text-center space-y-0.5">
-                <p className="text-xs text-muted-foreground">Average</p>
-                <p className={`text-sm font-bold ${scoreColor(pct)}`}>{pct}%</p>
-                <p className="text-xs text-muted-foreground">All topics</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-3 text-center space-y-0.5">
-                <p className="text-xs text-muted-foreground">Lowest</p>
-                <p className="text-sm font-bold text-red-500">
-                  {Math.min(...exam.topics.map((t) => Math.round((t.score / t.maxScore) * 100)))}%
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {exam.topics.reduce((a, b) =>
-                    b.score / b.maxScore < a.score / a.maxScore ? b : a
-                  ).topic.split(" ")[0]}
-                </p>
-              </div>
-            </div>
+            )}
           </TabsContent>
 
           {/* ── Feedback tab ── */}
@@ -202,15 +215,21 @@ const ExamAnalyticsCard = ({ exam }: { exam: ExamRecord }) => {
                 Instructor Feedback
               </p>
               <div className="space-y-2">
-                {exam.feedback.map((fb, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${feedbackBg(fb.type)}`}
-                  >
-                    {feedbackIcon(fb.type)}
-                    <span>{fb.text}</span>
+                {exam.feedback.length === 0 ? (
+                  <div className="rounded-lg border border-dashed px-3 py-2.5 text-sm text-muted-foreground">
+                    No instructor feedback yet.
                   </div>
-                ))}
+                ) : (
+                  exam.feedback.map((fb, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${feedbackBg(fb.type)}`}
+                    >
+                      {feedbackIcon(fb.type)}
+                      <span>{fb.text}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
