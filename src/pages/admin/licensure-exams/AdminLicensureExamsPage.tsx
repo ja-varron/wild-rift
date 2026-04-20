@@ -1,197 +1,162 @@
-import { useEffect, useMemo, useState } from "react"
+import { useState, useMemo } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  addLicensureExam,
-  deleteLicensureExam,
-  fetchLicensureExams,
-  type LicensureExam,
-  updateLicensureExam,
-} from "@/lib/licensure-exams-api"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 
-const AdminLicensureExamsPage = () => {
-  const [exams, setExams] = useState<LicensureExam[]>([])
-  const [fallbackMode, setFallbackMode] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [addValue, setAddValue] = useState("")
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editingValue, setEditingValue] = useState("")
-  const [saving, setSaving] = useState(false)
+import type { UserProfile } from "@/model/user-profile"
+import type { Course } from "@/model/course"
 
-  const activeCount = useMemo(() => exams.filter((exam) => exam.is_active).length, [exams])
+import { useFetchCourses } from "@/lib/supabase/course/context/use-fetch-courses"
+import { useCreateCourse } from "@/lib/supabase/course/context/use-create-course"
+import { useUpdateCourse } from "@/lib/supabase/course/context/use-update-course"
+import { useDeleteCourse } from "@/lib/supabase/course/context/use-delete-course"
 
-  const loadExams = async () => {
+import CourseCard from "./components/CourseCard"
+import CourseCardSkeleton from "./components/CourseCardSkeleton"
+import AddCourseDialog, { type CourseForm } from "./dialogs/AddCourseDialog"
+import DeleteCourseDialog from "./dialogs/DeleteCourseDialog"
+
+const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const { courses, isLoading: coursesLoading } = useFetchCourses(userProfile?.institution_id!)
+  
+  const { mutateAsync: createCourse } = useCreateCourse()
+  const { mutateAsync: updateCourse } = useUpdateCourse()
+  const { mutateAsync: deleteCourse, isPending: isDeleting } = useDeleteCourse()
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+  
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null)
+  const [deletingCourseName, setDeletingCourseName] = useState<string>("")
+
+  const activeCount = useMemo(() => courses.length, [courses])
+
+  // ADD / EDIT handlers
+  function handleOpenCreate() {
+    setEditingCourse(null)
+    setDialogOpen(true)
+  }
+
+  // ADD / EDIT handlers
+  function handleOpenEdit(course: Course) {
+    setEditingCourse(course)
+    setDialogOpen(true)
+  }
+
+  // ADD / EDIT handlers
+  async function handleSaveCourse(form: CourseForm) {
     try {
-      setLoading(true)
-      const data = await fetchLicensureExams()
-      setExams(data.exams)
-      setFallbackMode(data.fallback)
-    } catch (error) {
-      console.error("Failed to fetch licensure exams", error)
-      toast.error(error instanceof Error ? error.message : "Failed to load licensure exams")
-    } finally {
-      setLoading(false)
+      if (editingCourse) {
+        await updateCourse({
+          course_id: editingCourse.course_id,
+          updates: {
+            course_name: form.course_name,
+            course_description: form.description
+          }
+        })
+        toast.success("Examination updated successfully!")
+      } else {
+        await createCourse({
+          institution_id: userProfile?.institution_id!,
+          course_name: form.course_name,
+          course_description: form.description
+        })
+        toast.success("Examination created successfully!")
+      }
+      setDialogOpen(false)
+      setEditingCourse(null)
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred.")
     }
   }
 
-  useEffect(() => {
-    void loadExams()
-  }, [])
+  // DELETE handlers
+  function handleOpenDelete(course_id: string, course_name: string) {
+    setDeletingCourseId(course_id)
+    setDeletingCourseName(course_name)
+    setDeleteDialogOpen(true)
+  }
 
-  const handleAdd = async () => {
-    if (!addValue.trim()) {
-      toast.error("Please enter an exam name")
-      return
-    }
-
+  async function handleConfirmDelete() {
+    if (!deletingCourseId) return
     try {
-      setSaving(true)
-      await addLicensureExam(addValue.trim())
-      setAddValue("")
-      toast.success("Licensure exam added")
-      await loadExams()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to add licensure exam")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const startEdit = (exam: LicensureExam) => {
-    setEditingId(exam.id)
-    setEditingValue(exam.exam_name)
-  }
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditingValue("")
-  }
-
-  const handleUpdate = async () => {
-    if (!editingId) return
-    if (!editingValue.trim()) {
-      toast.error("Exam name cannot be empty")
-      return
-    }
-
-    try {
-      setSaving(true)
-      await updateLicensureExam(editingId, editingValue.trim())
-      toast.success("Licensure exam updated")
-      cancelEdit()
-      await loadExams()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update licensure exam")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDelete = async (examId: number) => {
-    try {
-      setSaving(true)
-      await deleteLicensureExam(examId)
-      toast.success("Licensure exam deleted")
-      await loadExams()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete licensure exam")
-    } finally {
-      setSaving(false)
+      await deleteCourse({ course_id: deletingCourseId, institution_id: userProfile?.institution_id! })
+      toast.success("Examination deleted successfully!")
+      setDeleteDialogOpen(false)
+      setDeletingCourseId(null)
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred.")
     }
   }
 
   return (
     <ScrollArea className="flex-1">
       <main className="p-6 space-y-6 max-w-5xl mx-auto w-full">
-        <div>
-          <h1 className="text-2xl font-bold">PRC Licensure Exams</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            List of PRC licensure examinations offered by VSU Review Center.
-          </p>
-        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">PRC Licensure Exams</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              List of PRC licensure examinations offered by VSU Review Center.
+            </p>
+          </div>
+          <Button onClick={handleOpenCreate}>
+            <Plus className="mr-2 size-4" />
+            Add Exam
+          </Button>
+        </div>  
 
+        {/* Courses */}
         <Card>
           <CardHeader className="border-b pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Offered Exams</CardTitle>
-              <Badge variant="secondary">{activeCount} active</Badge>
+              <Badge variant="secondary">{activeCount} total</Badge>
             </div>
           </CardHeader>
           <CardContent className="pt-4 space-y-4">
-            {fallbackMode ? (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                Running in fallback mode. Create the <span className="font-semibold">prc_licensure_exams</span> table
-                using the new SQL migration to enable add/edit/delete.
+            {coursesLoading ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(3)].map((_, i) => <CourseCardSkeleton key={i} />)}
+               </div>
+            ) : courses.length === 0 ? (
+              <div className="text-center p-8 border rounded-md border-dashed text-muted-foreground">
+                No examinations found. Click "Add Exam" to create one.
               </div>
-            ) : null}
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                value={addValue}
-                onChange={(event) => setAddValue(event.target.value)}
-                placeholder="Add new licensure exam"
-                disabled={saving || fallbackMode}
-              />
-              <Button onClick={handleAdd} disabled={saving || fallbackMode || !addValue.trim()}>
-                Add Exam
-              </Button>
-            </div>
-
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading exams...</p>
             ) : (
-              <ul className="space-y-2">
-                {exams.map((exam) => (
-                  <li key={exam.id} className="rounded-md border px-3 py-2 text-sm">
-                    {editingId === exam.id ? (
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <Input
-                          value={editingValue}
-                          onChange={(event) => setEditingValue(event.target.value)}
-                          disabled={saving || fallbackMode}
-                        />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleUpdate} disabled={saving || fallbackMode}>
-                            Save
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={cancelEdit} disabled={saving}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3">
-                        <span>{exam.exam_name}</span>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEdit(exam)}
-                            disabled={saving || fallbackMode}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDelete(exam.id)}
-                            disabled={saving || fallbackMode}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </li>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {courses.map((course) => (
+                  <CourseCard
+                    key={course.course_id}
+                    course={course}
+                    onEditCourse={handleOpenEdit}
+                    onDeleteCourse={handleOpenDelete}
+                  />
                 ))}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Create/Edit Dialog */}
+        <AddCourseDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          initialData={editingCourse ? { course_name: editingCourse.course_name, description: editingCourse.course_description ?? "" } : undefined}
+          onSave={handleSaveCourse}
+        />
+
+        {/* Delete Dialog */}
+        <DeleteCourseDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          handleDelete={handleConfirmDelete}
+          courseName={deletingCourseName}
+          isDeleting={isDeleting}
+        />
       </main>
     </ScrollArea>
   )
