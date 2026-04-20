@@ -1,4 +1,4 @@
-import supabase from "@/lib/supabase/supabase";
+import { supabase } from "@/lib/supabase/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UserProfile } from "@/model/user-profile";
 import type { User as AuthUser } from "@supabase/supabase-js";
@@ -72,11 +72,15 @@ const useFetchProfile = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       // When the auth state changes, we want to invalidate the user profile query so it will refetch with the new auth user (or null if signed out)
 
-      if(event === "SIGNED_IN" || event === "USER_UPDATED") {
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         queryClient.invalidateQueries({ queryKey: ['authUser'] });
         queryClient.invalidateQueries({ queryKey: ['userProfile'] });
-      } else if(event === "SIGNED_OUT") {
-        queryClient.removeQueries({ queryKey: ['authUser'] });
+      } else if (event === "SIGNED_OUT") {
+        // Use setQueryData instead of removeQueries so the update is synchronous:
+        // removeQueries deletes the cache entry and triggers an async refetch,
+        // causing a brief loading state. setQueryData(null) immediately makes
+        // authUser = null so the Router re-renders and redirects in the same cycle.
+        queryClient.setQueryData(['authUser'], null);
         queryClient.removeQueries({ queryKey: ['userProfile'] });
       }
     });
