@@ -20,7 +20,8 @@ import AddCourseDialog, { type CourseForm } from "./dialogs/AddCourseDialog"
 import DeleteCourseDialog from "./dialogs/DeleteCourseDialog"
 
 const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
-  const { courses, isLoading: coursesLoading } = useFetchCourses(userProfile?.institution_id!)
+  const institutionId = userProfile?.institution_id ?? ""
+  const { courses, isLoading: coursesLoading } = useFetchCourses(institutionId)
   
   const { mutateAsync: createCourse } = useCreateCourse()
   const { mutateAsync: updateCourse } = useUpdateCourse()
@@ -60,8 +61,12 @@ const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | n
         })
         toast.success("Examination updated successfully!")
       } else {
+        if (!institutionId) {
+          toast.error("Institution not found.")
+          return
+        }
         await createCourse({
-          institution_id: userProfile?.institution_id!,
+          institution_id: institutionId,
           course_name: form.course_name,
           course_description: form.description
         })
@@ -69,6 +74,7 @@ const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | n
       }
       setDialogOpen(false)
       setEditingCourse(null)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast.error(e.message || "An error occurred.")
     }
@@ -83,11 +89,16 @@ const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | n
 
   async function handleConfirmDelete() {
     if (!deletingCourseId) return
+    if (!institutionId) {
+      toast.error("Institution not found.")
+      return
+    }
     try {
-      await deleteCourse({ course_id: deletingCourseId, institution_id: userProfile?.institution_id! })
+      await deleteCourse({ course_id: deletingCourseId, institution_id: institutionId })
       toast.success("Examination deleted successfully!")
       setDeleteDialogOpen(false)
       setDeletingCourseId(null)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast.error(e.message || "An error occurred.")
     }

@@ -108,9 +108,11 @@ const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | 
     try {
       // Create user directly via the supabaseAdmin client (service role key).
       // This skips email confirmation and does not affect the admin's own session.
+      const randomPassword = generateRandomPassword(8)
+
       const { data, error } = await adminSignUp(
         form.email,
-        "12345678",
+        randomPassword,
         {
           firstName: form.firstName,
           middleName: form.middleName,
@@ -160,7 +162,7 @@ const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | 
       }
 
       // Send welcome email using the Edge Function2
-      sendWelcomeEmail(form.email, generateRandomPassword())
+      sendWelcomeEmail(form.email, randomPassword)
 
       refetch()
       setDialogOpen(false)
