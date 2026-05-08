@@ -1,330 +1,238 @@
-import { useEffect, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Plus,
-  ArrowLeft,
-  ChevronRight,
-  Calendar,
-  BookOpen,
-  Loader2,
-  AlertCircle,
-  KeyRound,
-  ScanLine,
-  Users,
-  BarChart3,
-  MapPin,
-  FileText,
-  Pencil,
-  Trash2,
-} from "lucide-react"
+import { Plus, ArrowLeft, AlertCircle, Calendar, KeyRound, ScanLine, Users, BarChart3, BookOpen, ClipboardList } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useFetchInstructorExams } from "@/lib/supabase/exam/context/use-fetch-instructor-exams"
-import {
-  useCreateExam,
-  useUpdateExam,
-  useDeleteExam,
-  useSaveExamResults,
-  useSaveAnswerKey,
-  useSaveScannedPaper,
-  useUpdateStudentFeedback,
-} from "@/lib/supabase/exam/use-exam-mutations"
-import { supabase } from "@/lib/supabase/supabase"
-import { AnswerKeyEditor } from "./components/AnswerKeyEditor"
-import { ScannerPanel } from "./components/ScannerPanel"
-import { StudentScoresTable } from "./components/StudentScoresTable"
-import { ExamAnalyticsPanel } from "./components/ExamAnalyticsPanel"
-import { LearningMaterialsPanel } from "./components/LearningMaterialsPanel"
-import type { Exam, AnswerKeyItem, ScannedPaper, StudentResult, ExamTopic } from "./types"
+import type { Exam } from "@/model/exam"
 import { toast } from "sonner"
+import { AddExamDialog } from "./dialogs/AddExamDialog"
+import { ExamCard } from "./components/ExamCard"
+import { useFetchExams } from "@/lib/supabase/exam/context/use-fetch-exams"
+import { useCreateExam } from "@/lib/supabase/exam/context/use-create-exam"
+import { useUpdateExam } from "@/lib/supabase/exam/context/use-update-exam"
+import { useFetchScoreResults } from "@/lib/supabase/exam/context/use-fetch-score-results"
+import type { UserProfile } from "@/model/user-profile"
+import { SidebarProvider } from "@/components/ui/sidebar"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent } from "@/components/ui/card"
+import { AnswerKeyEditor } from "./components/AnswerKeyEditor"
+import { ExamAnalyticsPanel } from "./components/ExamAnalyticsPanel"
+import { StudentScoresTable } from "./components/StudentScoresTable"
+import type { AnswerKeyItem, ExamTopic, ScannedPaper, StudentResult } from "./types"
+import {
+  deleteAnswerKeyVersion,
+  getAnswerKeyVersionsByExam,
+  saveAnswerKeysFromEditor,
+} from "@/lib/supabase/exam/answer-key-service"
+import { useCreateScoreResults } from "@/lib/supabase/exam/context/use-create-score-results"
+import { useCreateFeedback } from "@/lib/supabase/feedback/context/use-create-feedback"
+import { useFetchFeedback } from "@/lib/supabase/feedback/context/use-fetch-feedback"
+import { ScannerPanel } from "./components/ScannerPanel"
 
-const defaultFormData = {
+export type ExamFormData = {
+  title: string
+  course: string
+  examDate: string
+  totalItems: number
+  passingRate: number
+  topics: string
+}
+
+const defaultFormData: ExamFormData = {
   title: "",
   course: "",
-  location: "",
   examDate: "",
-  totalItems: 50,
-  passingRate: 60,
+  totalItems: 100,
+  passingRate: 75,
   topics: "",
 }
 
-const InstructorExamsPage = () => {
-  const [instructorId, setInstructorId] = useState<string>()
-  const [localExams, setLocalExams] = useState<Exam[]>([])
-  const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
-  const [editingExamId, setEditingExamId] = useState<number | null>(null)
-  const [openDialog, setOpenDialog] = useState(false)
-  const [formData, setFormData] = useState(defaultFormData)
-  const [error, setError] = useState<string | null>(null)
+const ANSWER_CHOICES = ["A", "B", "C", "D", "E"] as const
 
-  const createMutation = useCreateExam()
-  const updateMutation = useUpdateExam()
-  const deleteMutation = useDeleteExam()
-  const saveExamResultsMutation = useSaveExamResults()
-  const saveAnswerKeyMutation = useSaveAnswerKey()
-  const saveScannedPaperMutation = useSaveScannedPaper()
-  const updateStudentFeedbackMutation = useUpdateStudentFeedback()
+type AnswerChoice = (typeof ANSWER_CHOICES)[number]
 
-  useEffect(() => {
-    const getInstructor = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setInstructorId(user.id)
+function normalizeAnswerValue(value: unknown): AnswerChoice | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const idx = Math.trunc(value)
+    if (idx >= 1 && idx <= ANSWER_CHOICES.length) return ANSWER_CHOICES[idx - 1]
+    return null
+  }
+
+  if (typeof value !== "string") return null
+  const trimmed = value.trim().toUpperCase()
+  if (!trimmed) return null
+  if (ANSWER_CHOICES.includes(trimmed as AnswerChoice)) {
+    return trimmed as AnswerChoice
+  }
+  const parsed = Number.parseInt(trimmed, 10)
+  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= ANSWER_CHOICES.length) {
+    return ANSWER_CHOICES[parsed - 1]
+  }
+  return null
+}
+
+function getNormalizedAnswer(
+  answers: Record<string, string> | string[] | undefined,
+  questionNumber: number,
+): AnswerChoice | null {
+  if (!answers) return null
+  if (Array.isArray(answers)) {
+    return normalizeAnswerValue(answers[questionNumber - 1])
+  }
+
+  const value = answers[String(questionNumber)]
+  return normalizeAnswerValue(value)
+}
+
+
+const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+  const { exams, isLoading, refetch } = useFetchExams(userProfile?.course?.course_id!)
+  const { mutateAsync: createExam, isPending: isCreatePending } = useCreateExam()
+  const { mutateAsync: updateExam, isPending: isUpdatePending } = useUpdateExam()
+  const { mutateAsync: createScoreResults } = useCreateScoreResults()
+  const { mutateAsync: saveFeedback } = useCreateFeedback()
+
+  const [selectedExamID, setSelectedExamID] = useState<string | null>(null)
+  const [editingExam, setEditingExam] = useState<Exam | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [answerKeys, setAnswerKeys] = useState<AnswerKeyItem[]>([])
+  const [answerKeyVersions, setAnswerKeyVersions] = useState<string[]>([])
+  const [studentResults, setStudentResults] = useState<StudentResult[]>([])
+  const nextResultIdRef = useRef(1)
+
+  const { scoreResults } = useFetchScoreResults(selectedExamID ?? "")
+  const { feedbackEntries } = useFetchFeedback(selectedExamID ?? "")
+
+  const feedbackByStudentId = useMemo(() => {
+    const map = new Map<string, { comment: string; message_at: string }>()
+    for (const entry of feedbackEntries) {
+      const studentId = entry.student?.student_id?.trim()
+      if (!studentId) continue
+      const messageAt = entry.message_at || ""
+      const existing = map.get(studentId)
+      if (!existing || messageAt > existing.message_at) {
+        map.set(studentId, { comment: entry.comment, message_at: messageAt })
       }
     }
-    getInstructor()
-  }, [])
+    return map
+  }, [feedbackEntries])
 
-  const { data: fetchedExams, isLoading } = useFetchInstructorExams(instructorId)
+  const [formData, setFormData] = useState<ExamFormData>(defaultFormData)
+  // const [error, setError] = useState<string | null>(null)
+  // const [deletingExamId, setDeletingExamId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (fetchedExams) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocalExams(fetchedExams)
-    }
-  }, [fetchedExams])
+  const selectedExam = useMemo(
+    () => exams.find((exam) => exam.exam_id === selectedExamID),
+    [exams, selectedExamID],
+  )
 
-  const selectedExam = localExams.find((exam) => exam.id === selectedExamId) ?? null
+  const topicDefinitions = useMemo<ExamTopic[]>(() => {
+    const topics = selectedExam?.topics ?? []
+    if (topics.length === 0) return [{ topic_idx: 1, name: "General" }]
 
-  function statusBadgeClass(status: Exam["status"]) {
-    switch (status) {
-      case "Completed":
-        return "bg-green-500 hover:bg-green-500 text-white"
-      case "Active":
-        return "bg-teal-700 hover:bg-teal-700 text-white"
-      case "Draft":
-        return "bg-muted text-muted-foreground hover:bg-muted"
-    }
-  }
-
-  function formatDateForInput(value: string): string {
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return ""
-    const yyyy = parsed.getFullYear()
-    const mm = String(parsed.getMonth() + 1).padStart(2, "0")
-    const dd = String(parsed.getDate()).padStart(2, "0")
-    return `${yyyy}-${mm}-${dd}`
-  }
-
-  function buildTopicObjects(names: string[]): ExamTopic[] {
-    return names.map((name, index) => ({
-      id: Date.now() + index,
-      name,
+    return topics.map((name, index) => ({
+      topic_idx: index + 1,
+      name: name.trim() || `Topic ${index + 1}`,
     }))
-  }
+  }, [selectedExam])
 
-  function openCreateDialog() {
-    setEditingExamId(null)
-    setFormData(defaultFormData)
-    setError(null)
-    setOpenDialog(true)
-  }
+  const persistedResults = useMemo<StudentResult[]>(() => {
+    if (!scoreResults || scoreResults.length === 0) return []
 
-  function openEditDialog(exam: Exam) {
-    setEditingExamId(exam.id)
-    setFormData({
-      title: exam.title,
-      course: exam.course,
-      location: exam.location || "",
-      examDate: formatDateForInput(exam.date),
-      totalItems: exam.totalItems,
-      passingRate: exam.passingRate,
-      topics: exam.topics.map((t) => t.name).join(", "),
-    })
-    setError(null)
-    setOpenDialog(true)
-  }
+    const fallbackTotalItems = Math.max(1, selectedExam?.total_items ?? 1)
+    const passingRate = selectedExam?.passing_rate ?? 0
 
-  function handleDeleteExam(exam: Exam) {
-    const confirmed = window.confirm(`Delete exam "${exam.title}"? This action cannot be undone.`)
-    if (!confirmed) return
+    return scoreResults.map((result, index) => {
+      const firstName = result.student.first_name.trim()
+      const lastName = result.student.last_name.trim()
+      const name = [firstName, lastName].filter(Boolean).join(" ") || "Unknown"
+      const studentId =
+        result.student.student_id ||
+        result.student.examinee_id_number ||
+        `unknown-${index + 1}`
+      const totalItems = typeof result.totalItems === "number" && Number.isFinite(result.totalItems)
+        ? result.totalItems
+        : fallbackTotalItems
+      const score = typeof result.totalScore === "number" && Number.isFinite(result.totalScore)
+        ? result.totalScore
+        : 0
+      const passed = typeof result.passed === "boolean"
+        ? result.passed
+        : (score / Math.max(1, totalItems)) * 100 >= passingRate
+      const topicScores = Array.isArray(result.topicScores)
+        ? result.topicScores.map((topic, topicIndex) => ({
+            topicId: Number.isFinite(topic.topic.topic_idx) ? topic.topic.topic_idx : topicIndex + 1,
+            score: Number.isFinite(topic.score) ? topic.score : 0,
+            maxScore: Number.isFinite(topic.total) ? topic.total : 0,
+          }))
+        : []
 
-    deleteMutation.mutate(exam.id, {
-      onSuccess: (result) => {
-        if (!result?.success) {
-          toast.error(result?.error || "Failed to delete exam")
-          return
-        }
-
-        setLocalExams((prev) => prev.filter((e) => e.id !== exam.id))
-        if (selectedExamId === exam.id) {
-          setSelectedExamId(null)
-        }
-        toast.success("Exam deleted")
-      },
-      onError: (err) => {
-        toast.error(err instanceof Error ? err.message : "Failed to delete exam")
-      },
-    })
-  }
-
-  function handleSaveAnswerKeys(examId: number, keys: AnswerKeyItem[]) {
-    setLocalExams((prev) =>
-      prev.map((exam) => (exam.id === examId ? { ...exam, answerKeys: keys } : exam)),
-    )
-
-    saveAnswerKeyMutation.mutate(
-      { examId, answerKey: keys },
-      {
-        onSuccess: () => {
-          toast.success("Answer keys saved")
-        },
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Failed to save answer keys")
-        },
-      },
-    )
-  }
-
-  function handleUpdateFeedback(examId: number, studentResultId: number, feedback: string) {
-    const exam = localExams.find((e) => e.id === examId)
-    const result = exam?.studentResults.find((r) => r.id === studentResultId)
-    if (!result) {
-      toast.error("Student result not found")
-      return
-    }
-
-    setLocalExams((prev) =>
-      prev.map((e) => {
-        if (e.id !== examId) return e
-        return {
-          ...e,
-          studentResults: e.studentResults.map((r) =>
-            r.id === studentResultId ? { ...r, feedback } : r,
-          ),
-        }
-      }),
-    )
-
-    updateStudentFeedbackMutation.mutate(
-      {
-        examId,
-        studentId: result.studentId,
-        feedback,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Feedback saved")
-        },
-        onError: (err) => {
-          toast.error(err instanceof Error ? err.message : "Failed to save feedback")
-        },
-      },
-    )
-  }
-
-  function getAnswerKeyForScan(exam: Exam): string[] {
-    if (!exam.answerKeys || exam.answerKeys.length === 0) {
-      return Array.from({ length: Math.max(1, exam.totalItems) }, () => "A")
-    }
-
-    const versionA = exam.answerKeys.filter((k) => k.keyVersion === "A")
-    const fallback = versionA.length > 0 ? versionA : exam.answerKeys
-    return [...fallback]
-      .sort((a, b) => a.questionNumber - b.questionNumber)
-      .slice(0, exam.totalItems)
-      .map((k) => k.correctAnswer)
-  }
-
-  function handleCaptureScannedPaperWithResult(
-    examId: number,
-    paper: ScannedPaper,
-    scanResult?: {
-      resultId: string
-      studentId?: string | null
-      studentName?: string | null
-      createdAt?: string
-      grading?: {
-        totalItems?: number
-        scorePercent?: number
-        passed?: boolean
-      }
-    },
-  ) {
-    const exam = localExams.find((e) => e.id === examId)
-    if (!exam) return
-
-    let newResult: StudentResult | null = null
-    if (paper.status === "Graded") {
-      const totalItems = Math.max(scanResult?.grading?.totalItems || exam.totalItems, 1)
-      const scorePercent = Math.max(0, Math.min(100, scanResult?.grading?.scorePercent ?? exam.passingRate))
-      const score = Math.round((scorePercent / 100) * totalItems)
-      const passed =
-        typeof scanResult?.grading?.passed === "boolean"
-          ? scanResult.grading.passed
-          : Math.round((score / totalItems) * 100) >= exam.passingRate
-
-      newResult = {
-        id: exam.studentResults.length + 1000,
-        name: scanResult?.studentName || paper.studentName || `Student ${paper.id}`,
-        studentId: scanResult?.studentId || paper.studentId || `UNKNOWN-${paper.id}`,
+      return {
+        id: index + 1,
+        name,
+        studentId,
         score,
         totalItems,
         passed,
-        topicScores: [],
-        scannedAt: scanResult?.createdAt ? new Date(scanResult.createdAt).toLocaleString() : paper.scannedAt,
+        topicScores,
+        scannedAt: result.scanned_at || "",
+        feedback: feedbackByStudentId.get(studentId)?.comment || undefined,
+      }
+    })
+  }, [scoreResults, selectedExam, feedbackByStudentId])
+
+  const displayResults = useMemo<StudentResult[]>(() => {
+    if (persistedResults.length === 0) return studentResults
+    if (studentResults.length === 0) return persistedResults
+
+    const merged = new Map<string, StudentResult>()
+    for (const result of persistedResults) {
+      merged.set(result.studentId, result)
+    }
+
+    for (const local of studentResults) {
+      const key = local.studentId || `local-${local.id}`
+      const existing = merged.get(key)
+      if (!existing) {
+        merged.set(key, local)
+        continue
+      }
+      if (local.feedback && local.feedback !== existing.feedback) {
+        merged.set(key, { ...existing, feedback: local.feedback })
       }
     }
 
-    setLocalExams((prev) =>
-      prev.map((currentExam) => {
-        if (currentExam.id !== examId) return currentExam
-        const nextScanned = [paper, ...currentExam.scannedPapers]
-        const gradedCount = nextScanned.filter((p) => p.status === "Graded").length
+    return Array.from(merged.values())
+  }, [persistedResults, studentResults])
 
-        let nextResults = currentExam.studentResults
-        if (newResult) {
-          const existingIdx = currentExam.studentResults.findIndex((r) => r.studentId === newResult!.studentId)
-          if (existingIdx >= 0) {
-            nextResults = [...currentExam.studentResults]
-            nextResults[existingIdx] = { ...nextResults[existingIdx], ...newResult }
-          } else {
-            nextResults = [newResult, ...currentExam.studentResults]
-          }
-        }
+  function resetResults() {
+    setStudentResults([])
+    nextResultIdRef.current = 1
+  }
 
-        return {
-          ...currentExam,
-          scannedPapers: nextScanned,
-          papersScanned: gradedCount,
-          studentResults: nextResults,
-          studentsEnrolled: Math.max(currentExam.studentsEnrolled, nextResults.length),
-        }
-      }),
-    )
+  async function loadAnswerKeys(examId: string) {
+    const result = await getAnswerKeyVersionsByExam(examId)
 
-    if (newResult) {
-      saveExamResultsMutation.mutate(
-        {
-          examId,
-          studentResults: [newResult],
-        },
-        {
-          onError: (err) => {
-            console.error("Failed to persist generated exam result:", err)
-          },
-        },
-      )
+    if (!result.success) {
+      toast.error(result.error || "Failed to load answer keys")
+      setAnswerKeys([])
+      setAnswerKeyVersions([])
+      return
     }
 
-    saveScannedPaperMutation.mutate(
-      { examId, scannedPaper: paper },
-      {
-        onError: (err) => {
-          console.error("Failed to persist scanned paper:", err)
-        },
-      },
+    setAnswerKeyVersions(result.data.map((record) => record.key_version))
+    setAnswerKeys(
+      result.data.flatMap((record) =>
+        record.answer_key.map((item) => ({
+          ...item,
+          exam_id: examId,
+          key_version: record.key_version,
+        })),
+      ),
     )
   }
 
@@ -332,516 +240,504 @@ const InstructorExamsPage = () => {
     const { name, value, type } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "number" ? parseInt(value) || 0 : value,
+      [name]: type === "number" ? Number(value) : value,
     }))
   }
 
-  const handleSubmitExam = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+  function handleOpenCreate() {
+    setEditingExam(null)
+    setDialogOpen(true)
+  }
 
-    if (!instructorId) {
-      setError("Instructor not authenticated")
-      return
-    }
+  // ADD / EDIT handlers
+  function handleOpenEdit(exam: Exam) {
+    setEditingExam(exam)
+    
+    // Convert formatted date back to YYYY-MM-DD for the HTML date input
+    const parsedDate = new Date(exam.exam_date)
+    const formattedDateForInput = !isNaN(parsedDate.getTime()) 
+      ? parsedDate.toISOString().split('T')[0] 
+      : ""
 
-    if (!formData.title || !formData.course || !formData.examDate) {
-      setError("Please fill in all required fields")
-      return
-    }
+    setFormData({
+      title: exam.exam_title || "",
+      course: exam.course_id || "",
+      examDate: formattedDateForInput,
+      totalItems: exam.total_items || 100,
+      passingRate: exam.passing_rate || 75,
+      topics: exam.topics ? exam.topics.join(", ") : "",
+    })
+    setDialogOpen(true)
+  }
 
-    const topicsList = formData.topics
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0)
-
-    if (editingExamId !== null) {
-      updateMutation.mutate(
-        {
-          examId: editingExamId,
-          examData: {
-            title: formData.title,
-            course: formData.course,
-            location: formData.location,
-            examDate: formData.examDate,
-            totalItems: formData.totalItems,
-            passingRate: formData.passingRate,
-            topics: buildTopicObjects(topicsList.length > 0 ? topicsList : ["General"]),
-          },
-        },
-        {
-          onSuccess: (result) => {
-            if (!result?.success) {
-              setError(result?.error || "Failed to update exam")
-              return
-            }
-
-            setLocalExams((prev) =>
-              prev.map((exam) =>
-                exam.id === editingExamId
-                  ? {
-                      ...exam,
-                      title: formData.title,
-                      course: formData.course,
-                      location: formData.location.trim() || "TBA",
-                      date: new Date(formData.examDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      }),
-                      totalItems: formData.totalItems,
-                      passingRate: formData.passingRate,
-                      topics: buildTopicObjects(topicsList.length > 0 ? topicsList : ["General"]),
-                    }
-                  : exam,
-              ),
-            )
-
-            toast.success("Exam updated")
-            setOpenDialog(false)
-            setEditingExamId(null)
-          },
-          onError: (err) => {
-            const errorMsg = err instanceof Error ? err.message : "Failed to update exam"
-            setError(errorMsg)
-          },
-        },
-      )
-      return
-    }
-
-    createMutation.mutate(
-      {
-        instructorId,
-        examData: {
-          title: formData.title,
-          course: formData.course,
-          location: formData.location,
-          examDate: formData.examDate,
-          totalItems: formData.totalItems,
-          passingRate: formData.passingRate,
-          topics: topicsList.length > 0 ? topicsList : ["General"],
-        },
-      },
-      {
-        onSuccess: (result) => {
-          if (!result?.success) {
-            setError(result?.error || "Failed to create exam")
-            return
+  // ADD / EDIT handlers
+  async function handleSaveExam(form: ExamFormData) {
+    try {
+      if (editingExam) {
+        await updateExam({
+          exam_id: editingExam.exam_id,
+          updates: {
+            exam_title: form.title,
+            exam_date: form.examDate,
+            total_items: form.totalItems,
+            passing_rate: form.passingRate,
+            topics: form.topics.split(",").map((t) => t.trim()),
           }
+        })
+        toast.success("Examination updated successfully!")
+      } else {
+        
+        await createExam({
+          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+          course_id: userProfile?.course?.course_id!,
+          created_by: userProfile?.user_id,
+          exam_title: form.title,
+          exam_date: form.examDate,
+          total_items: form.totalItems,
+          passing_rate: form.passingRate,
+          topics: form.topics.split(",").map((t) => t.trim()),
+        })
+        toast.success("Examination created successfully!")
+      }
+      await refetch()
+      closeExamDialog()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred.")
+    }
+  }
 
-          toast.success("Exam created")
-          setFormData(defaultFormData)
-          setOpenDialog(false)
-        },
-        onError: (err) => {
-          const errorMsg = err instanceof Error ? err.message : "Failed to create exam"
-          setError(errorMsg)
-        },
-      },
+  function closeExamDialog() {
+    setDialogOpen(false)
+    setEditingExam(null)
+    setFormData(defaultFormData)
+  }
+
+
+  async function handleSaveAnswerKeys(
+    exam_id: string,
+    keys: AnswerKeyItem[],
+    versions: string[],
+  ): Promise<void> {
+    const deletedVersions = answerKeyVersions.filter(
+      (version) => !versions.includes(version),
     )
+
+    for (const version of deletedVersions) {
+      const deleteResult = await deleteAnswerKeyVersion(exam_id, version)
+      if (!deleteResult.success) {
+        toast.error(deleteResult.error || `Failed to delete key version ${version}`)
+        return
+      }
+    }
+
+    const result = await saveAnswerKeysFromEditor(exam_id, keys)
+
+    if (!result.success) {
+      toast.error(result.error || "Failed to save answer keys")
+      return
+    }
+
+    await loadAnswerKeys(exam_id)
+    toast.success("Answer keys saved successfully")
+  }
+
+  function handleScanCapture(
+    paper: ScannedPaper,
+    scanResult?: {
+      resultId: string
+      answers?: Record<string, string> | string[]
+      answerKeyVersion?: string
+      studentName?: string | null
+      examineeId?: string
+    },
+  ) {
+    if (!selectedExam) return
+
+    const answers = scanResult?.answers
+    if (!answers) {
+      toast.error("No answers returned from the scan.")
+      return
+    }
+
+    const keyVersion = scanResult?.answerKeyVersion
+    if (!keyVersion) {
+      toast.error("Missing answer key version for this scan.")
+      return
+    }
+
+    const keyItems = answerKeys
+      .filter((key) => key.key_version === keyVersion)
+      .sort((a, b) => a.question_number - b.question_number)
+
+    if (keyItems.length === 0) {
+      toast.error(`No answer key found for version ${keyVersion}.`)
+      return
+    }
+
+    const topics = topicDefinitions.length > 0
+      ? topicDefinitions
+      : [{ topic_idx: 1, name: "General" }]
+    const topicIdByName = new Map(
+      topics.map((topic) => [topic.name.trim().toLowerCase(), topic.topic_idx]),
+    )
+    const topicTotals = new Map<number, { score: number; maxScore: number }>()
+    topics.forEach((topic) => {
+      topicTotals.set(topic.topic_idx, { score: 0, maxScore: 0 })
+    })
+
+    let totalScore = 0
+    let totalMax = 0
+
+    for (const keyItem of keyItems) {
+      const points = Number.isFinite(keyItem.points) ? keyItem.points : 1
+      totalMax += points
+
+      const topicLabel =
+        typeof keyItem.topic === "string"
+          ? keyItem.topic
+          : keyItem.topic?.name
+      const topicKey = topicLabel?.trim().toLowerCase()
+        || topics[0].name.trim().toLowerCase()
+      const topicId = topicIdByName.get(topicKey) ?? topics[0].topic_idx
+      const bucket = topicTotals.get(topicId) ?? { score: 0, maxScore: 0 }
+      bucket.maxScore += points
+
+      const answer = getNormalizedAnswer(answers, keyItem.question_number)
+      if (answer && answer === keyItem.correct_answer) {
+        bucket.score += points
+        totalScore += points
+      }
+      topicTotals.set(topicId, bucket)
+    }
+
+    const topicScores = topics.map((topic) => {
+      const bucket = topicTotals.get(topic.topic_idx) ?? { score: 0, maxScore: 0 }
+      return {
+        topicId: topic.topic_idx,
+        score: bucket.score,
+        maxScore: Math.max(1, bucket.maxScore),
+      }
+    })
+
+    const topicScoresPayload = topics.map((topic) => {
+      const bucket = topicTotals.get(topic.topic_idx) ?? { score: 0, maxScore: 0 }
+      const safeMax = Math.max(1, bucket.maxScore)
+      return {
+        topicId: topic.topic_idx,
+        topicName: topic.name,
+        score: bucket.score,
+        maxScore: safeMax,
+        percent: Math.round((bucket.score / safeMax) * 100),
+      }
+    })
+
+    const totalItems = totalMax > 0
+      ? totalMax
+      : Math.max(1, selectedExam.total_items)
+    const scorePercent = (totalScore / Math.max(1, totalItems)) * 100
+    const passed = scorePercent >= selectedExam.passing_rate
+
+    const resultBase = {
+      name: scanResult?.studentName || paper.studentName,
+      studentId: paper.studentId,
+      score: totalScore,
+      totalItems,
+      passed,
+      topicScores,
+      scannedAt: paper.scannedAt,
+    }
+
+    setStudentResults((prev) => {
+      const existingIndex = prev.findIndex(
+        (entry) => entry.studentId === resultBase.studentId,
+      )
+      if (existingIndex >= 0) {
+        const existing = prev[existingIndex]
+        const next = [...prev]
+        next[existingIndex] = {
+          ...existing,
+          ...resultBase,
+          id: existing.id,
+          feedback: existing.feedback,
+        }
+        return next
+      }
+
+      const nextId = nextResultIdRef.current++
+      return [{ id: nextId, ...resultBase }, ...prev]
+    })
+
+    void createScoreResults({
+      examId: selectedExam.exam_id,
+      examineeId: scanResult?.examineeId ?? paper.studentId,
+      answers,
+      scorePayload: {
+        totalScore,
+        totalItems,
+        scorePercent,
+        passed,
+        answerKeyVersion: keyVersion,
+        scannedAt: paper.scannedAt,
+        topicScores: topicScoresPayload,
+      },
+    }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to store scan results.")
+    })
+  }
+
+  async function handleUpdateFeedback(studentId: string, feedback: string) {
+    const trimmedStudentId = studentId.trim()
+    if (!trimmedStudentId || trimmedStudentId === "—") {
+      toast.error("Student ID is required to save feedback.")
+      return
+    }
+
+    setStudentResults((prev) => {
+      const existingIndex = prev.findIndex(
+        (entry) => entry.studentId === trimmedStudentId,
+      )
+      if (existingIndex >= 0) {
+        const next = [...prev]
+        next[existingIndex] = { ...next[existingIndex], feedback }
+        return next
+      }
+
+      const baseEntry = displayResults.find(
+        (entry) => entry.studentId === trimmedStudentId,
+      )
+      if (!baseEntry) return prev
+
+      return [{ ...baseEntry, feedback }, ...prev]
+    })
+
+    if (!selectedExam) return
+
+    try {
+      await saveFeedback({
+        exam_id: selectedExam.exam_id,
+        student_id: trimmedStudentId,
+        comment: feedback,
+        message_at: new Date().toISOString(),
+      })
+      toast.success("Feedback saved.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to save feedback.",
+      )
+    }
   }
 
   return (
-    <div className="min-h-screen w-full bg-white p-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="mb-2 text-3xl font-bold">Exam Management</h1>
-            <p className="text-gray-600">Create, configure, and manage your examinations.</p>
-          </div>
-          <Button
-            className="gap-1.5 bg-blue-600 hover:bg-blue-700"
-            onClick={openCreateDialog}
-          >
-            <Plus className="size-4" />
-            Create Exam
-          </Button>
+    <SidebarProvider>
+      <TooltipProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <ScrollArea className="flex-1">
+            <main className="p-6 space-y-6 max-w-6xl mx-auto w-full">
+              {selectedExam ? (
+                /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                  *  EXAM DETAIL VIEW
+                  * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+                <>
+                  {/* Back button + heading */}
+                  <div className="flex items-start gap-4">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 mt-0.5"
+                      onClick={() => {
+                        setSelectedExamID(null)
+                        setAnswerKeys([])
+                        setAnswerKeyVersions([])
+                        resetResults()
+                      }}
+                    >
+                      <ArrowLeft className="size-4" />
+                    </Button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h1 className="text-2xl font-bold">
+                          {selectedExam.exam_title}
+                        </h1>
+                      </div>
+                      <p className="text-muted-foreground text-sm mt-0.5">
+                        {selectedExam.course?.course_name} · {selectedExam.exam_date} ·{" "}
+                        {selectedExam.total_items} items ·{" "}
+                        {selectedExam.passing_rate}% passing
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Overview stat cards */}
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {[
+                      {
+                        label: "Total Items",
+                        value: selectedExam.total_items,
+                        icon: ClipboardList,
+                      },
+                      
+                      {
+                        label: "Topics",
+                        value: selectedExam.topics.length,
+                        icon: BookOpen,
+                      },
+                    ].map((stat) => (
+                      <Card key={stat.label} className="py-4">
+                        <CardContent className="px-4">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">
+                                {stat.label}
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {stat.value}
+                              </p>
+                            </div>
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950">
+                              <stat.icon className="size-4 text-teal-700" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Tabs: Answer Key | Scanner | Scores | Analytics */}
+                  <Tabs defaultValue="answer-key">
+                    <TabsList>
+                      <TabsTrigger value="answer-key" className="gap-1.5">
+                        <KeyRound className="size-3.5" /> Answer Key
+                      </TabsTrigger>
+                      <TabsTrigger value="scanner" className="gap-1.5">
+                        <ScanLine className="size-3.5" /> Scanner
+                      </TabsTrigger>
+                      <TabsTrigger value="scores" className="gap-1.5">
+                        <Users className="size-3.5" /> Scores
+                      </TabsTrigger>
+                      <TabsTrigger value="analytics" className="gap-1.5">
+                        <BarChart3 className="size-3.5" /> Analytics
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="answer-key" className="mt-4">
+                      <AnswerKeyEditor
+                        topics={selectedExam.topics}
+                        totalItems={selectedExam.total_items}
+                        keyVersions={
+                          answerKeyVersions.length > 0 ? answerKeyVersions : undefined
+                        }
+                        initialKeys={answerKeys}
+                        onSave={(keys, versions) => {
+                          void handleSaveAnswerKeys(selectedExam.exam_id, keys, versions)
+                        }}
+                        onCancel={() => {}}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="scanner" className="mt-4">
+                      <ScannerPanel
+                        examId={selectedExam.exam_id}
+                        scannedPapers={[]}
+                        examTitle={""}
+                        answerKeyVersions={answerKeyVersions}
+                        onCapture={handleScanCapture}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="scores" className="mt-4">
+                      <StudentScoresTable
+                        results={scoreResults ?? []}
+                        topics={topicDefinitions}
+                        passingRate={selectedExam.passing_rate}
+                        feedbackEntries={feedbackEntries}
+                        onUpdateFeedback={handleUpdateFeedback}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="analytics" className="mt-4">
+                      <ExamAnalyticsPanel
+                        results={displayResults}
+                        topics={topicDefinitions}
+                        passingRate={selectedExam.passing_rate}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </>
+              ) : (
+                <>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h1 className="text-2xl font-bold">
+                        Exam Management
+                      </h1>
+                      <p className="text-muted-foreground text-sm mt-0.5">
+                        Create, configure, and manage your examinations.
+                      </p>
+                    </div>
+                    <Button
+                      className="gap-1.5 bg-teal-700 hover:bg-teal-800"
+                      onClick={handleOpenCreate}
+                    >
+                      <Plus className="size-4" />
+                      Create Exam
+                    </Button>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-32" />
+                      ))}
+                    </div>
+                  ) : !exams.length ? (
+                    <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
+                      <p className="mb-4 text-gray-500">No exams created yet</p>
+                      <Button
+                        className="gap-1.5 bg-blue-600 hover:bg-blue-700"
+                        onClick={handleOpenCreate}
+                      >
+                        <Plus className="size-4" />
+                        Create Your First Exam
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-2">
+                      {exams.map((exam) => (
+                        <ExamCard
+                          key={exam.exam_id}
+                          exam={exam}
+                          onSelect={() => {
+                            setSelectedExamID(exam.exam_id)
+                            void loadAnswerKeys(exam.exam_id)
+                            resetResults()
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                </>
+              )}
+            </main>
+          </ScrollArea>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {selectedExam ? (
-          <div className="space-y-6">
-            <div className="flex items-start gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="mt-0.5 shrink-0"
-                onClick={() => setSelectedExamId(null)}
-              >
-                <ArrowLeft className="size-4" />
-              </Button>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-bold">{selectedExam.title}</h1>
-                  <Badge className={statusBadgeClass(selectedExam.status)}>
-                    {selectedExam.status}
-                  </Badge>
-                </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {selectedExam.course}
-                  {selectedExam.location ? ` · ${selectedExam.location}` : ""}
-                  {` · ${selectedExam.date} · ${selectedExam.totalItems} items · ${selectedExam.passingRate}% passing`}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {[
-                { label: "Total Items", value: selectedExam.totalItems, icon: BookOpen },
-                { label: "Students", value: selectedExam.studentsEnrolled, icon: Users },
-                { label: "Papers Scanned", value: selectedExam.papersScanned, icon: ScanLine },
-                { label: "Topics", value: selectedExam.topics.length, icon: BarChart3 },
-              ].map((stat) => (
-                <div key={stat.label} className="rounded-lg border p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
-                      <p className="mt-1 text-2xl font-bold">{stat.value}</p>
-                    </div>
-                    <div className="flex size-8 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950">
-                      <stat.icon className="size-4 text-teal-700" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Tabs defaultValue="answer-key">
-              <TabsList>
-                <TabsTrigger value="answer-key" className="gap-1.5">
-                  <KeyRound className="size-3.5" /> Answer Key
-                </TabsTrigger>
-                <TabsTrigger value="scanner" className="gap-1.5">
-                  <ScanLine className="size-3.5" /> Scan Papers
-                </TabsTrigger>
-                <TabsTrigger value="scores" className="gap-1.5">
-                  <Users className="size-3.5" /> Feedback & Scores
-                </TabsTrigger>
-                <TabsTrigger value="materials" className="gap-1.5">
-                  <FileText className="size-3.5" /> Materials
-                </TabsTrigger>
-                <TabsTrigger value="analytics" className="gap-1.5">
-                  <BarChart3 className="size-3.5" /> Analytics
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="answer-key" className="mt-4">
-                <AnswerKeyEditor
-                  topics={selectedExam.topics}
-                  answerKeys={selectedExam.answerKeys}
-                  totalItems={selectedExam.totalItems}
-                  onSave={(keys) => handleSaveAnswerKeys(selectedExam.id, keys)}
-                  onCancel={() => {
-                    toast.info("Answer key editing canceled")
-                  }}
-                />
-              </TabsContent>
-
-              <TabsContent value="scanner" className="mt-4">
-                <ScannerPanel
-                  examId={selectedExam.id}
-                  answerKey={getAnswerKeyForScan(selectedExam)}
-                  scannedPapers={selectedExam.scannedPapers}
-                  examTitle={selectedExam.title}
-                  onCapture={(paper, scanResult) =>
-                    handleCaptureScannedPaperWithResult(selectedExam.id, paper, scanResult)
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="scores" className="mt-4">
-                <StudentScoresTable
-                  results={selectedExam.studentResults}
-                  topics={selectedExam.topics}
-                  passingRate={selectedExam.passingRate}
-                  onUpdateFeedback={(studentId, feedback) =>
-                    handleUpdateFeedback(selectedExam.id, studentId, feedback)
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="materials" className="mt-4">
-                <LearningMaterialsPanel
-                  examId={selectedExam.id}
-                  instructorId={instructorId}
-                />
-              </TabsContent>
-
-              <TabsContent value="analytics" className="mt-4">
-                <ExamAnalyticsPanel
-                  results={selectedExam.studentResults}
-                  topics={selectedExam.topics}
-                  passingRate={selectedExam.passingRate}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        ) : isLoading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-32" />
-            ))}
-          </div>
-        ) : localExams.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-            <p className="mb-4 text-gray-500">No exams created yet</p>
-            <Button
-              className="gap-1.5 bg-blue-600 hover:bg-blue-700"
-              onClick={openCreateDialog}
-            >
-              <Plus className="size-4" />
-              Create Your First Exam
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {localExams.map((exam) => (
-              <div key={exam.id} className="rounded-lg border p-4">
-                <div className="mb-3 flex items-start justify-between">
-                  <h3 className="text-lg font-semibold">{exam.title}</h3>
-                  <Badge>{exam.status}</Badge>
-                </div>
-
-                <div className="mb-4 space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="size-4" />
-                    <span>{exam.course}</span>
-                  </div>
-                  {exam.location && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="size-4" />
-                      <span>{exam.location}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Calendar className="size-4" />
-                    <span>{exam.date}</span>
-                  </div>
-                </div>
-
-                <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded bg-gray-100 p-2">
-                    <p className="font-medium text-gray-600">Items</p>
-                    <p className="font-semibold">{exam.totalItems}</p>
-                  </div>
-                  <div className="rounded bg-gray-100 p-2">
-                    <p className="font-medium text-gray-600">Students</p>
-                    <p className="font-semibold">{exam.studentsEnrolled}</p>
-                  </div>
-                  <div className="rounded bg-gray-100 p-2">
-                    <p className="font-medium text-gray-600">Scanned</p>
-                    <p className="font-semibold">{exam.papersScanned}</p>
-                  </div>
-                  <div className="rounded bg-gray-100 p-2">
-                    <p className="font-medium text-gray-600">Passing</p>
-                    <p className="font-semibold">{exam.passingRate}%</p>
-                  </div>
-                </div>
-
-                {exam.topics.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-1">
-                    {exam.topics.slice(0, 2).map((t) => (
-                      <Badge key={t.id} variant="outline" className="text-xs">
-                        {t.name}
-                      </Badge>
-                    ))}
-                    {exam.topics.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{exam.topics.length - 2} more
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                  onClick={() => setSelectedExamId(exam.id)}
-                >
-                  View Details <ChevronRight className="ml-1 size-4" />
-                </Button>
-
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => openEditDialog(exam)}
-                  >
-                    <Pencil className="size-3.5" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => handleDeleteExam(exam)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="size-3.5" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>{editingExamId !== null ? "Edit Exam" : "Create New Exam"}</DialogTitle>
-              <DialogDescription>
-                {editingExamId !== null
-                  ? "Update exam details and save your changes."
-                  : "Set up a new examination for your course."}
-              </DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmitExam} className="space-y-4">
-              <div>
-                <Label htmlFor="title" className="text-sm font-medium">
-                  Exam Title *
-                </Label>
-                <Input
-                  id="title"
-                  name="title"
-                  placeholder="e.g., Midterm Exam"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="course" className="text-sm font-medium">
-                  Course *
-                </Label>
-                <Input
-                  id="course"
-                  name="course"
-                  placeholder="e.g., Biology 101"
-                  value={formData.course}
-                  onChange={handleInputChange}
-                  required
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="location" className="text-sm font-medium">
-                  Location
-                </Label>
-                <Input
-                  id="location"
-                  name="location"
-                  placeholder="e.g., Room 204, Main Building"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="examDate" className="text-sm font-medium">
-                  Exam Date *
-                </Label>
-                <Input
-                  id="examDate"
-                  name="examDate"
-                  type="date"
-                  value={formData.examDate}
-                  onChange={handleInputChange}
-                  required
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="totalItems" className="text-sm font-medium">
-                  Total Items (Questions)
-                </Label>
-                <Input
-                  id="totalItems"
-                  name="totalItems"
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={formData.totalItems}
-                  onChange={handleInputChange}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="passingRate" className="text-sm font-medium">
-                  Passing Rate (%)
-                </Label>
-                <Input
-                  id="passingRate"
-                  name="passingRate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.passingRate}
-                  onChange={handleInputChange}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="topics" className="text-sm font-medium">
-                  Topics (comma-separated)
-                </Label>
-                <Input
-                  id="topics"
-                  name="topics"
-                  placeholder="e.g., Genetics, Evolution, Ecology"
-                  value={formData.topics}
-                  onChange={handleInputChange}
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setOpenDialog(false)
-                    setEditingExamId(null)
-                  }}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 gap-1.5 bg-blue-600 hover:bg-blue-700"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                >
-                  {(createMutation.isPending || updateMutation.isPending) && (
-                    <Loader2 className="size-4 animate-spin" />
-                  )}
-                  {editingExamId !== null
-                    ? (updateMutation.isPending ? "Saving..." : "Save Changes")
-                    : (createMutation.isPending ? "Creating..." : "Create Exam")}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </div>
+        <AddExamDialog
+          createDialogOpen={dialogOpen}
+          setCreateDialogOpen={setDialogOpen}
+          editingExam={editingExam}
+          formData={formData}
+          onInputChange={handleInputChange}
+          onSubmit={handleSaveExam}
+          isSubmitting={isCreatePending || isUpdatePending}
+          onCancel={closeExamDialog}
+        />
+      </TooltipProvider>
+    </SidebarProvider>
   )
 }
 
