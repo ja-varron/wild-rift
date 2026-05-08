@@ -5,6 +5,26 @@ import type { ExamTopic, AnswerKeyItem, StudentResult, ScannedPaper } from "@/pa
 const supabase = getSupabaseClient()
 const LOCATION_COLUMN_FLAG_KEY = "exam_location_column_supported"
 
+type RawAnswerPayload = Record<string, string> | string[]
+
+type ScoreTopicPayload = {
+  topicId: number
+  topicName: string
+  score: number
+  maxScore: number
+  percent: number
+}
+
+type ScoreResultPayload = {
+  totalScore: number
+  totalItems: number
+  scorePercent: number
+  passed: boolean
+  answerKeyVersion: string
+  scannedAt: string
+  topicScores: ScoreTopicPayload[]
+}
+
 function getLocationColumnSupport(): boolean | undefined {
   if (typeof window === "undefined") return undefined
   const value = window.localStorage.getItem(LOCATION_COLUMN_FLAG_KEY)
@@ -25,6 +45,29 @@ function isMissingLocationColumnError(error: unknown): boolean {
     (message.includes("location") && message.includes("column")) ||
     (details.includes("location") && details.includes("column"))
   )
+}
+
+function isMissingConflictConstraintError(error: unknown): boolean {
+  const message = String((error as { message?: string })?.message || "").toLowerCase()
+  return message.includes("no unique") && message.includes("on conflict")
+}
+
+function normalizeAnswersPayload(payload: RawAnswerPayload): Record<string, string> {
+  if (Array.isArray(payload)) {
+    return payload.reduce<Record<string, string>>((acc, value, index) => {
+      if (typeof value === "string" && value.trim()) {
+        acc[String(index + 1)] = value.trim()
+      }
+      return acc
+    }, {})
+  }
+
+  return Object.entries(payload).reduce<Record<string, string>>((acc, [key, value]) => {
+    if (typeof value === "string" && value.trim()) {
+      acc[key] = value.trim()
+    }
+    return acc
+  }, {})
 }
 
 // ─── Create Exam ───────────────────────────────────────────────────────────────
@@ -419,5 +462,72 @@ export const bulkUpdateResultsStatus = async (
   } catch (err) {
     console.error("Error updating results status:", err)
     return { success: false, error: err instanceof Error ? err.message : "Failed to update results status" }
+  }
+}
+
+export const saveExamPaperAndScores = async (payload: {
+  examId: string
+  examineeId: string
+  answers: RawAnswerPayload
+  scorePayload: ScoreResultPayload
+}) => {
+  try {
+    const examineeId = payload.examineeId.trim()
+    if (!examineeId) {
+      return { success: false, error: "Examinee ID is required." }
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id, examinee_id_number")
+      .eq("examinee_id_number", examineeId)
+      .eq("role", "Student")
+      .maybeSingle()
+
+    if (profileError) throw profileError
+    if (!profile) {
+      return { success: false, error: `No student found for examinee ID ${examineeId}.` }
+    }
+
+    const normalizedAnswers = normalizeAnswersPayload(payload.answers)
+
+    const { error: paperError } = await supabase
+      .from("exam_papers")
+      .insert({
+        exam_id: payload.examId,
+        user_id: profile.user_id,
+        actual_answers: normalizedAnswers,
+      })
+
+    if (paperError) throw paperError
+
+    const scoreRow = {
+      exam_id: payload.examId,
+      student_id: profile.user_id,
+      scores: payload.scorePayload,
+    }
+
+    const upsertResult = await supabase
+      .from("score_results")
+      .upsert(scoreRow, { onConflict: "exam_id,student_id" })
+
+    if (upsertResult.error) {
+      if (isMissingConflictConstraintError(upsertResult.error)) {
+        const { error: insertError } = await supabase
+          .from("score_results")
+          .insert(scoreRow)
+        if (insertError) throw insertError
+      } else {
+        throw upsertResult.error
+      }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error("Error saving exam paper and scores:", err)
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to store scan results",
+    }
   }
 }
