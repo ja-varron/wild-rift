@@ -124,8 +124,8 @@ function ConfiguredAppRouter() {
           }
         >
           <Route index element={<InstructorDashboardPage />} />
-          <Route path="exams" element={<InstructorExamsPage />} />
-          <Route path="students" element={<InstructorListStudentPage />} />
+          <Route path="exams" element={<InstructorExamsPage userProfile={userProfile} />} />
+          <Route path="students" element={<InstructorListStudentPage userProfile={userProfile} />} />
         </Route>
 
         {/* Admin Routes */}
