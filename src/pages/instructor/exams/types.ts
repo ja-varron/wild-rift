@@ -1,14 +1,14 @@
 export interface ExamTopic {
-  id: number
+  topic_idx: number
   name: string
 }
 
 export interface AnswerKeyItem {
-  questionNumber: number
-  topicId: number
-  correctAnswer: "A" | "B" | "C" | "D" | "E"
-  points: number
-  keyVersion: string
+  key_version: string
+  question_number: number
+  correct_answer: "A" | "B" | "C" | "D" | "E"
+  points: number  
+  topic: ExamTopic | string // Added topic field to link each question to its topic
 }
 
 export interface ScannedPaper {
@@ -19,10 +19,30 @@ export interface ScannedPaper {
   status: "Processing" | "Graded" | "Error"
 }
 
+// This interface represents the result of grading a student's exam, including their overall score and topic-wise breakdown.
 export interface TopicScore {
-  topicId: number
+  topic: ExamTopic
   score: number
-  maxScore: number
+  total: number
+}
+
+
+export interface ScoreResult {
+  score_result_id?: string
+  exam_id: string
+  student: {
+    student_id: string
+    first_name: string
+    last_name: string
+    examinee_id_number: string
+  }
+  topicScores: TopicScore[]
+  scanned_at: string
+  totalScore?: number
+  totalItems?: number
+  passed?: boolean
+  scorePercent?: number
+  answerKeyVersion?: string
 }
 
 export interface StudentResult {
@@ -32,24 +52,23 @@ export interface StudentResult {
   score: number
   totalItems: number
   passed: boolean
-  topicScores: TopicScore[]
+  topicScores: {
+    topicId: number
+    score: number
+    maxScore: number
+  }[]
   scannedAt: string
   feedback?: string
 }
 
-export interface Exam {
-  id: number
-  title: string
-  course: string
-  location?: string
-  date: string
-  totalItems: number
-  passingRate: number
-  status: "Draft" | "Active" | "Completed"
-  studentsEnrolled: number
-  papersScanned: number
-  topics: ExamTopic[]
-  answerKeys: AnswerKeyItem[]
-  studentResults: StudentResult[]
-  scannedPapers: ScannedPaper[]
+export interface Feedback {
+  feedback_id: string
+  exam_id: string
+  student: {
+    student_id: string
+    first_name: string
+    last_name: string
+  },
+  comment: string
+  message_at: string
 }
