@@ -1,8 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react"
-import { supabase } from "@/lib/supabase/supabase"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import {
   FileImage,
@@ -15,15 +23,17 @@ import {
   RefreshCw,
   Circle,
 } from "lucide-react"
+import { supabase } from "@/lib/supabase/supabase"
 import type { ScannedPaper } from "../types"
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 interface ScannerPanelProps {
-  examId: number
+  examId?: string
   answerKey?: string[]
-  scannedPapers: ScannedPaper[]
-  examTitle: string
+  answerKeyVersions?: string[]
+  scannedPapers?: ScannedPaper[]
+  examTitle?: string
   onCapture?: (
     paper: ScannedPaper,
     scanResult?: {
@@ -36,6 +46,11 @@ interface ScannerPanelProps {
         scorePercent?: number
         passed?: boolean
       }
+      answers?: Record<string, string> | string[]
+      answerKeyVersion?: string
+      examineeId?: string
+      warnings?: string[]
+      processingMs?: number | null
     },
   ) => void
 }
@@ -85,19 +100,54 @@ function nowLabel(): string {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ScannerPanel({
-  examId,
-  answerKey,
-  scannedPapers,
-  examTitle,
+  scannedPapers = [],
+  examTitle = "this exam",
+  answerKeyVersions = [],
   onCapture,
-}: ScannerPanelProps) {
+}: ScannerPanelProps = {}) {
   const [isMobile] = useState<boolean>(detectMobile)
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isCapturing, setIsCapturing] = useState(false)
   const [localPapers, setLocalPapers] = useState<ScannedPaper[]>([])
   const [captureFlash, setCaptureFlash] = useState(false)
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000"
+  const [lastAnswers, setLastAnswers] = useState<Record<string, string> | null>(null)
+  const [lastWarnings, setLastWarnings] = useState<string[]>([])
+  const [processingMs, setProcessingMs] = useState<number | null>(null)
+  const [lastGrading, setLastGrading] = useState<{
+    totalItems?: number
+    totalScore?: number
+    scorePercent?: number
+    passed?: boolean
+  } | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [examineeId, setExamineeId] = useState("")
+  const [isCheckingExaminee, setIsCheckingExaminee] = useState(false)
+  const [examineeNotFound, setExamineeNotFound] = useState(false)
+  const [examineeLookupError, setExamineeLookupError] = useState<string | null>(null)
+  const keyVersionOptions = useMemo(
+    () => (answerKeyVersions.length > 0 ? answerKeyVersions : ["A", "B"]),
+    [answerKeyVersions],
+  )
+  const [selectedKeyVersion, setSelectedKeyVersion] = useState(
+    keyVersionOptions[0] ?? "",
+  )
+  const OMR_API_URL = import.meta.env.VITE_OMR_API_URL || "http://localhost:8000"
+
+  const allPapers = useMemo(
+    () => [...localPapers, ...scannedPapers],
+    [localPapers, scannedPapers],
+  )
+  const isDuplicateExaminee = useMemo(() => {
+    const trimmed = examineeId.trim().toLowerCase()
+    if (!trimmed) return false
+    return allPapers.some(
+      (paper) => paper.studentId.trim().toLowerCase() === trimmed,
+    )
+  }, [allPapers, examineeId])
+  const isCaptureDisabled = useMemo(() => {
+    return !examineeId.trim() || isDuplicateExaminee
+  }, [examineeId, isDuplicateExaminee])
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -133,12 +183,75 @@ export function ScannerPanel({
   // Stop camera when component unmounts
   useEffect(() => () => { stopCamera() }, [stopCamera])
 
+  useEffect(() => {
+    if (keyVersionOptions.length === 0) return
+    if (!keyVersionOptions.includes(selectedKeyVersion)) {
+      setSelectedKeyVersion(keyVersionOptions[0])
+    }
+  }, [keyVersionOptions, selectedKeyVersion])
+
+  useEffect(() => {
+    const trimmed = examineeId.trim()
+    if (!trimmed) {
+      setIsCheckingExaminee(false)
+      setExamineeNotFound(false)
+      setExamineeLookupError(null)
+      return
+    }
+
+    let active = true
+    const timer = window.setTimeout(async () => {
+      setIsCheckingExaminee(true)
+      setExamineeNotFound(false)
+      setExamineeLookupError(null)
+
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("examinee_id_number", trimmed)
+          .eq("role", "Student")
+          .maybeSingle()
+
+        if (!active) return
+        if (error) {
+          setExamineeLookupError("Could not verify examinee ID right now.")
+          return
+        }
+
+        setExamineeNotFound(!data)
+      } catch (err) {
+        if (!active) return
+        setExamineeLookupError("Could not verify examinee ID right now.")
+        console.error("Examinee lookup failed:", err)
+      } finally {
+        if (active) setIsCheckingExaminee(false)
+      }
+    }, 450)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [examineeId])
+
   // ── Capture photo ──
   async function capturePhoto() {
     if (!videoRef.current || !canvasRef.current || isCapturing) return
 
+    const trimmedExamineeId = examineeId.trim()
+    if (!trimmedExamineeId) {
+      setScanError("Enter the examinee ID number before scanning.")
+      return
+    }
+    if (!selectedKeyVersion) {
+      setScanError("Select an answer key version before scanning.")
+      return
+    }
+
     setIsCapturing(true)
     setCaptureFlash(true)
+    setScanError(null)
     setTimeout(() => setCaptureFlash(false), 150)
 
     const video = videoRef.current
@@ -150,8 +263,8 @@ export function ScannerPanel({
     const newId = nextIdRef.current++
     const processingPaper: ScannedPaper = {
       id: newId,
-      studentName: "Processing...",
-      studentId: "—",
+      studentName: `Examinee ${trimmedExamineeId}`,
+      studentId: trimmedExamineeId,
       scannedAt: nowLabel(),
       status: "Processing",
     }
@@ -167,38 +280,47 @@ export function ScannerPanel({
       })
 
       const formData = new FormData()
-      formData.append("sheet", canvasBlob, `scan-${Date.now()}.jpg`)
-      if (answerKey && answerKey.length > 0) {
-        formData.append("answerKey", JSON.stringify(answerKey))
-      }
+      formData.append("file", canvasBlob, `scan-${Date.now()}.jpg`)
+      formData.append("examinee_id", trimmedExamineeId)
+      formData.append("answer_key_version", selectedKeyVersion)
 
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers: Record<string, string> = {}
-      if (session?.access_token) {
-        headers.Authorization = `Bearer ${session.access_token}`
-      }
-
-      const response = await fetch(`${BACKEND_URL}/api/exams/${examId}/scan`, {
+      const response = await fetch(`${OMR_API_URL}/scan`, {
         method: "POST",
-        headers,
         body: formData,
       })
 
       const payload = await response.json().catch(() => ({}))
+
+      console.log("Scan response:", { status: response.status, payload })
       if (!response.ok) {
-        throw new Error(payload?.error || "Scan request failed")
+        throw new Error(payload?.detail || "Scan request failed")
       }
+
+      setLastAnswers(payload?.answers || null)
+      setLastWarnings(Array.isArray(payload?.warnings) ? payload.warnings : [])
+      setProcessingMs(typeof payload?.processing_ms === "number" ? payload.processing_ms : null)
+      setLastGrading(payload?.grading ?? null)
 
       const gradedPaper: ScannedPaper = {
         ...processingPaper,
-        studentName: payload?.studentName || `Student #${newId - 999}`,
-        studentId: payload?.studentId || `ID-${String(newId).padStart(5, "0")}`,
-        scannedAt: payload?.createdAt ? new Date(payload.createdAt).toLocaleString() : processingPaper.scannedAt,
+        studentName: `Examinee ${trimmedExamineeId}`,
+        studentId: trimmedExamineeId,
         status: "Graded",
       }
 
       setLocalPapers((prev) => prev.map((p) => (p.id === newId ? gradedPaper : p)))
-      onCapture?.(gradedPaper, payload)
+      onCapture?.(gradedPaper, {
+        resultId: String(payload?.result_id ?? payload?.resultId ?? newId),
+        studentId: payload?.student_id ?? payload?.studentId ?? trimmedExamineeId,
+        studentName: payload?.student_name ?? payload?.studentName ?? gradedPaper.studentName,
+        createdAt: payload?.created_at ?? payload?.createdAt,
+        grading: payload?.grading,
+        answers: payload?.answers,
+        answerKeyVersion: selectedKeyVersion,
+        examineeId: trimmedExamineeId,
+        warnings: Array.isArray(payload?.warnings) ? payload.warnings : [],
+        processingMs: typeof payload?.processing_ms === "number" ? payload.processing_ms : null,
+      })
     } catch (error) {
       const errorPaper: ScannedPaper = {
         ...processingPaper,
@@ -207,6 +329,7 @@ export function ScannerPanel({
         status: "Error",
       }
       setLocalPapers((prev) => prev.map((p) => (p.id === newId ? errorPaper : p)))
+      setScanError(error instanceof Error ? error.message : "Scan failed")
       console.error("Scanner capture failed:", error)
     } finally {
       setIsCapturing(false)
@@ -214,7 +337,6 @@ export function ScannerPanel({
   }
 
   // ── Merged papers list ──
-  const allPapers = [...localPapers, ...scannedPapers]
   const gradedCount = allPapers.filter((p) => p.status === "Graded").length
 
   return (
@@ -317,14 +439,14 @@ export function ScannerPanel({
               </Button>
 
               {/* Capture button */}
-              <button
+              <Button
                 onClick={capturePhoto}
-                disabled={!cameraActive || isCapturing}
+                disabled={!cameraActive || isCapturing || isCaptureDisabled}
                 className="flex size-14 items-center justify-center rounded-full border-4 border-teal-700 bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-opacity active:scale-95"
                 title="Capture answer sheet"
               >
                 <Circle className="size-8 fill-teal-700 text-teal-700" />
-              </button>
+              </Button>
 
               {/* Spacer to balance layout */}
               <div className="w-20" />
@@ -332,6 +454,136 @@ export function ScannerPanel({
           </CardContent>
         </Card>
       )}
+
+      {/* ── Examinee details ── */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-sm font-medium">Examinee Details</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="examineeId">Examinee ID Number</Label>
+              <Input
+                id="examineeId"
+                placeholder="e.g., 000000"
+                value={examineeId}
+                onChange={(e) => {
+                  setExamineeId(e.target.value)
+                  if (scanError) setScanError(null)
+                  if (examineeNotFound) setExamineeNotFound(false)
+                  if (examineeLookupError) setExamineeLookupError(null)
+                }}
+              />
+              {isCheckingExaminee && (
+                <p className="text-xs text-muted-foreground">
+                  Checking examinee ID...
+                </p>
+              )}
+              {isDuplicateExaminee && (
+                <p className="text-xs text-amber-600">
+                  This examinee ID was already scanned.
+                </p>
+              )}
+              {examineeNotFound && (
+                <p className="text-xs text-red-500">
+                  No student found for this examinee ID.
+                </p>
+              )}
+              {examineeLookupError && (
+                <p className="text-xs text-red-500">{examineeLookupError}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="answerKeyVersion">Answer Key</Label>
+              <Select
+                value={selectedKeyVersion}
+                onValueChange={(val) => {
+                  setSelectedKeyVersion(val)
+                  if (scanError) setScanError(null)
+                }}
+              >
+                <SelectTrigger id="answerKeyVersion">
+                  <SelectValue placeholder="Select version" />
+                </SelectTrigger>
+                <SelectContent>
+                  {keyVersionOptions.map((version) => (
+                    <SelectItem key={version} value={version}>
+                      Version {version}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Latest answers ── */}
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Latest Answers</p>
+            {processingMs !== null && (
+              <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                {processingMs} ms
+              </Badge>
+            )}
+          </div>
+          {lastGrading && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {typeof lastGrading.scorePercent === "number" && (
+                <Badge className="bg-teal-700 text-white">
+                  {Math.round(lastGrading.scorePercent)}%
+                </Badge>
+              )}
+              {typeof lastGrading.totalScore === "number" &&
+                typeof lastGrading.totalItems === "number" && (
+                  <span className="text-xs text-muted-foreground">
+                    {lastGrading.totalScore}/{lastGrading.totalItems}
+                  </span>
+                )}
+              {typeof lastGrading.passed === "boolean" && (
+                <Badge
+                  className={
+                    lastGrading.passed
+                      ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
+                      : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                  }
+                >
+                  {lastGrading.passed ? "Passed" : "Failed"}
+                </Badge>
+              )}
+            </div>
+          )}
+          {scanError && <p className="text-xs text-red-500">{scanError}</p>}
+          {lastWarnings.length > 0 && (
+            <p className="text-xs text-amber-600">Warnings: {lastWarnings.join(", ")}</p>
+          )}
+          {!lastAnswers ? (
+            <p className="text-xs text-muted-foreground">Capture a scan to view answers.</p>
+          ) : (
+            <div className="max-h-64 overflow-auto rounded-md border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="text-left font-medium px-3 py-2">Question</th>
+                    <th className="text-left font-medium px-3 py-2">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(lastAnswers)
+                    .sort((a, b) => Number(a[0]) - Number(b[0]))
+                    .map(([q, ans]) => (
+                      <tr key={q} className="border-t">
+                        <td className="px-3 py-1.5">Q{q}</td>
+                        <td className="px-3 py-1.5 font-medium">{ans}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Summary bar ── */}
       <div>

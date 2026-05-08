@@ -11,43 +11,44 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { KeyRound, Plus, X } from "lucide-react"
-import type { ExamTopic, AnswerKeyItem } from "../types"
+import type { AnswerKeyItem } from "../types"
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
-interface AnswerKeyEditorProps {
-  topics: ExamTopic[]
-  answerKeys: AnswerKeyItem[]
+type AnswerKeyEditorProps = {
+  topics: string[]
   totalItems: number
   keyVersions?: string[]
-  onSave?: (keys: AnswerKeyItem[]) => void
+  initialKeys?: AnswerKeyItem[]
+  onSave?: (keys: AnswerKeyItem[], versions: string[]) => void
   onCancel?: () => void
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const ANSWER_OPTIONS: ("A" | "B" | "C" | "D" | "E")[] = ["A", "B", "C", "D", "E"]
-const DEFAULT_VERSIONS = ["A", "B", "C", "D"]
+const DEFAULT_VERSIONS = ["A", "B"]
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function AnswerKeyEditor({
   topics,
-  answerKeys,
   totalItems,
   keyVersions = DEFAULT_VERSIONS,
+  initialKeys = [],
   onSave,
   onCancel,
 }: AnswerKeyEditorProps) {
   const [versions, setVersions] = useState<string[]>(keyVersions)
   const [activeVersion, setActiveVersion] = useState(keyVersions[0] ?? "A")
-  const [draft, setDraft] = useState<AnswerKeyItem[]>(answerKeys)
+  const [draft, setDraft] = useState<AnswerKeyItem[]>(initialKeys)
 
   useEffect(() => {
-    setDraft(answerKeys)
-  }, [answerKeys])
-
+    setVersions(keyVersions)
+    setActiveVersion(keyVersions[0] ?? "A")
+    setDraft(initialKeys)
+  }, [initialKeys, keyVersions])
   // ── Version management ─────────────────────────────────────────────────────
 
   function addVersion() {
@@ -60,7 +61,7 @@ export function AnswerKeyEditor({
   function removeVersion(version: string) {
     if (versions.length <= 1) return
     setVersions((prev) => prev.filter((v) => v !== version))
-    setDraft((prev) => prev.filter((k) => k.keyVersion !== version))
+    setDraft((prev) => prev.filter((k) => k.key_version !== version))
     if (activeVersion === version) {
       setActiveVersion((prev) => {
         const remaining = versions.filter((v) => v !== version)
@@ -70,31 +71,37 @@ export function AnswerKeyEditor({
     }
   }
 
-  // Build the complete list of rows for the active version,
-  // filling in defaults for any question not yet in the draft.
-  const rows: AnswerKeyItem[] = Array.from({ length: totalItems }, (_, i) => {
-    const qn = i + 1
+  function getRowForVersion(version: string, qn: number): AnswerKeyItem {
     return (
       draft.find(
-        (k) => k.questionNumber === qn && k.keyVersion === activeVersion,
+        (k) => k.question_number === qn && k.key_version === version,
       ) ?? {
-        questionNumber: qn,
-        topicId: topics[0]?.id ?? 0,
-        correctAnswer: undefined as unknown as "A",
+        // exam_id: draft[0]?.exam_id ?? initialKeys[0]?.exam_id ?? "",
+        question_number: qn,
+        topic: topics[0] ?? "",
+        correct_answer: "A",
         points: 1,
-        keyVersion: activeVersion,
+        key_version: version,
       }
     )
-  })
+  }
+
+  function buildRowsForVersion(version: string): AnswerKeyItem[] {
+    return Array.from({ length: totalItems }, (_, i) =>
+      getRowForVersion(version, i + 1),
+    )
+  }
+
+  const rows = buildRowsForVersion(activeVersion)
 
   function updateRow(qn: number, patch: Partial<AnswerKeyItem>) {
     setDraft((prev) => {
       const exists = prev.find(
-        (k) => k.questionNumber === qn && k.keyVersion === activeVersion,
+        (k) => k.question_number === qn && k.key_version === activeVersion,
       )
       if (exists) {
         return prev.map((k) =>
-          k.questionNumber === qn && k.keyVersion === activeVersion
+          k.question_number === qn && k.key_version === activeVersion
             ? { ...k, ...patch }
             : k,
         )
@@ -102,11 +109,12 @@ export function AnswerKeyEditor({
       return [
         ...prev,
         {
-          questionNumber: qn,
-          topicId: topics[0]?.id ?? 0,
-          correctAnswer: "A" as const,
+          // exam_id: draft[0]?.exam_id ?? initialKeys[0]?.exam_id ?? "",
+          question_number: qn,
+          topic: topics[0] ?? "",
+          correct_answer: "A" as const,
           points: 1,
-          keyVersion: activeVersion,
+          key_version: activeVersion,
           ...patch,
         },
       ]
@@ -125,11 +133,10 @@ export function AnswerKeyEditor({
           {versions.map((v) => (
             <div
               key={v}
-              className={`flex items-center rounded text-xs font-semibold transition-colors ${
-                activeVersion === v
+              className={`flex items-center rounded text-xs font-semibold transition-colors ${activeVersion === v
                   ? "bg-teal-700 text-white"
                   : "border border-input bg-background text-foreground"
-              }`}
+                }`}
             >
               <button
                 onClick={() => setActiveVersion(v)}
@@ -185,11 +192,11 @@ export function AnswerKeyEditor({
           /* Question rows */
           <div>
             {rows.map((row, idx) => (
-              <div key={`${activeVersion}-${row.questionNumber}`}>
+              <div key={`${activeVersion}-${row.question_number}`}>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
                   {/* Question number */}
                   <span className="w-5 shrink-0 text-sm font-semibold">
-                    {row.questionNumber}.
+                    {row.question_number}.
                   </span>
 
                   {/* Correct Answer */}
@@ -202,13 +209,12 @@ export function AnswerKeyEditor({
                         <button
                           key={opt}
                           onClick={() =>
-                            updateRow(row.questionNumber, { correctAnswer: opt })
+                            updateRow(row.question_number, { correct_answer: opt })
                           }
-                          className={`flex size-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors cursor-pointer ${
-                            row.correctAnswer === opt
+                          className={`flex size-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors cursor-pointer ${row.correct_answer === opt
                               ? "border-teal-700 bg-teal-700 text-white"
                               : "border-border bg-background text-foreground hover:bg-muted"
-                          }`}
+                            }`}
                         >
                           {opt}
                         </button>
@@ -227,7 +233,7 @@ export function AnswerKeyEditor({
                       step={0.5}
                       value={row.points}
                       onChange={(e) =>
-                        updateRow(row.questionNumber, {
+                        updateRow(row.question_number, {
                           points: parseFloat(e.target.value) || 0,
                         })
                       }
@@ -241,10 +247,10 @@ export function AnswerKeyEditor({
                       Topic/Tag
                     </span>
                     <Select
-                      value={row.topicId ? String(row.topicId) : ""}
+                      value={row.topic ?? ""}
                       onValueChange={(val) =>
-                        updateRow(row.questionNumber, {
-                          topicId: parseInt(val),
+                        updateRow(row.question_number, {
+                          topic: val,
                         })
                       }
                     >
@@ -252,9 +258,9 @@ export function AnswerKeyEditor({
                         <SelectValue placeholder="Select topic…" />
                       </SelectTrigger>
                       <SelectContent>
-                        {topics.map((t) => (
-                          <SelectItem key={t.id} value={String(t.id)}>
-                            {t.name}
+                        {topics.map((topic) => (
+                          <SelectItem key={topic} value={topic}>
+                            {topic}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -276,7 +282,12 @@ export function AnswerKeyEditor({
         </Button>
         <Button
           className="bg-teal-700 hover:bg-teal-800"
-          onClick={() => onSave?.(draft)}
+          onClick={() => {
+            const payload = versions.flatMap((version) =>
+              buildRowsForVersion(version),
+            )
+            onSave?.(payload, versions)
+          }}
         >
           Save
         </Button>
