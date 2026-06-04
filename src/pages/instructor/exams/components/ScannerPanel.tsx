@@ -23,7 +23,9 @@ import {
   RefreshCw,
   Circle,
 } from "lucide-react"
+import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/supabase"
+import { useUpsertExamPaper } from "@/lib/supabase/paper/context/use-upsert-paper"
 import type { ScannedPaper } from "../types"
 
 // ── Props ──────────────────────────────────────────────────────────────────────
@@ -34,6 +36,9 @@ interface ScannerPanelProps {
   answerKeyVersions?: string[]
   scannedPapers?: ScannedPaper[]
   examTitle?: string
+  initialExamineeId?: string
+  initialAnswerKeyVersion?: string
+  fullScreenCamera?: boolean
   onCapture?: (
     paper: ScannedPaper,
     scanResult?: {
@@ -97,14 +102,46 @@ function nowLabel(): string {
   })
 }
 
+function normalizeAnswersForUpsert(
+  answers: Record<string, string> | string[] | undefined,
+): Record<string, string> | null {
+  if (!answers) return null
+  if (Array.isArray(answers)) {
+    const normalized = answers.reduce<Record<string, string>>((acc, value, index) => {
+      if (typeof value === "string" && value.trim()) {
+        acc[String(index + 1)] = value.trim()
+      }
+      return acc
+    }, {})
+    return Object.keys(normalized).length > 0 ? normalized : null
+  }
+
+  const normalized = Object.entries(answers).reduce<Record<string, string>>(
+    (acc, [key, value]) => {
+      if (typeof value === "string" && value.trim()) {
+        acc[key] = value.trim()
+      }
+      return acc
+    },
+    {},
+  )
+
+  return Object.keys(normalized).length > 0 ? normalized : null
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ScannerPanel({
+  examId,
   scannedPapers = [],
   examTitle = "this exam",
   answerKeyVersions = [],
+  initialExamineeId,
+  initialAnswerKeyVersion,
+  fullScreenCamera = false,
   onCapture,
 }: ScannerPanelProps = {}) {
+  const { mutateAsync: upsertExamPaper } = useUpsertExamPaper()
   const [isMobile] = useState<boolean>(detectMobile)
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -121,16 +158,19 @@ export function ScannerPanel({
     passed?: boolean
   } | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
-  const [examineeId, setExamineeId] = useState("")
+  const [examineeId, setExamineeId] = useState(initialExamineeId?.trim() ?? "")
   const [isCheckingExaminee, setIsCheckingExaminee] = useState(false)
   const [examineeNotFound, setExamineeNotFound] = useState(false)
   const [examineeLookupError, setExamineeLookupError] = useState<string | null>(null)
+  const [examineeUserId, setExamineeUserId] = useState<string | null>(null)
   const keyVersionOptions = useMemo(
     () => (answerKeyVersions.length > 0 ? answerKeyVersions : ["A", "B"]),
     [answerKeyVersions],
   )
   const [selectedKeyVersion, setSelectedKeyVersion] = useState(
-    keyVersionOptions[0] ?? "",
+    initialAnswerKeyVersion && keyVersionOptions.includes(initialAnswerKeyVersion)
+      ? initialAnswerKeyVersion
+      : (keyVersionOptions[0] ?? ""),
   )
   const OMR_API_URL = import.meta.env.VITE_OMR_API_URL || "http://localhost:8000"
 
@@ -148,6 +188,16 @@ export function ScannerPanel({
   const isCaptureDisabled = useMemo(() => {
     return !examineeId.trim() || isDuplicateExaminee
   }, [examineeId, isDuplicateExaminee])
+
+  const cameraContainerClass = fullScreenCamera
+    ? "relative w-full h-[100svh] bg-black"
+    : "relative w-full bg-black"
+  const cameraCardClass = fullScreenCamera
+    ? "overflow-hidden rounded-none border-0"
+    : "overflow-hidden"
+  const cameraContentClass = fullScreenCamera
+    ? "p-0"
+    : "p-0"
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -184,11 +234,22 @@ export function ScannerPanel({
   useEffect(() => () => { stopCamera() }, [stopCamera])
 
   useEffect(() => {
+    const trimmed = initialExamineeId?.trim()
+    if (trimmed) {
+      setExamineeId(trimmed)
+    }
+  }, [initialExamineeId])
+
+  useEffect(() => {
     if (keyVersionOptions.length === 0) return
+    if (!selectedKeyVersion && initialAnswerKeyVersion && keyVersionOptions.includes(initialAnswerKeyVersion)) {
+      setSelectedKeyVersion(initialAnswerKeyVersion)
+      return
+    }
     if (!keyVersionOptions.includes(selectedKeyVersion)) {
       setSelectedKeyVersion(keyVersionOptions[0])
     }
-  }, [keyVersionOptions, selectedKeyVersion])
+  }, [keyVersionOptions, selectedKeyVersion, initialAnswerKeyVersion])
 
   useEffect(() => {
     const trimmed = examineeId.trim()
@@ -196,6 +257,7 @@ export function ScannerPanel({
       setIsCheckingExaminee(false)
       setExamineeNotFound(false)
       setExamineeLookupError(null)
+      setExamineeUserId(null)
       return
     }
 
@@ -220,9 +282,11 @@ export function ScannerPanel({
         }
 
         setExamineeNotFound(!data)
+        setExamineeUserId(data?.user_id ?? null)
       } catch (err) {
         if (!active) return
         setExamineeLookupError("Could not verify examinee ID right now.")
+        setExamineeUserId(null)
         console.error("Examinee lookup failed:", err)
       } finally {
         if (active) setIsCheckingExaminee(false)
@@ -284,7 +348,7 @@ export function ScannerPanel({
       formData.append("examinee_id", trimmedExamineeId)
       formData.append("answer_key_version", selectedKeyVersion)
 
-      const response = await fetch(`${OMR_API_URL}/scan`, {
+      const response = await fetch(`${OMR_API_URL}scan`, {
         method: "POST",
         body: formData,
       })
@@ -300,6 +364,17 @@ export function ScannerPanel({
       setLastWarnings(Array.isArray(payload?.warnings) ? payload.warnings : [])
       setProcessingMs(typeof payload?.processing_ms === "number" ? payload.processing_ms : null)
       setLastGrading(payload?.grading ?? null)
+
+      const normalizedAnswers = normalizeAnswersForUpsert(payload?.answers)
+      if (examId && examineeUserId && normalizedAnswers) {
+        void upsertExamPaper({
+          exam_id: examId,
+          student_id: examineeUserId,
+          actual_answers: normalizedAnswers,
+        }).catch((error) => {
+          toast.error(error instanceof Error ? error.message : "Failed to save exam paper.")
+        })
+      }
 
       const gradedPaper: ScannedPaper = {
         ...processingPaper,
@@ -360,10 +435,13 @@ export function ScannerPanel({
         </Card>
       ) : (
         /* Mobile – camera viewfinder */
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
+        <Card className={cameraCardClass}>
+          <CardContent className={cameraContentClass}>
             {/* Viewfinder */}
-            <div className="relative w-full bg-black" style={{ aspectRatio: "4/3" }}>
+            <div
+              className={cameraContainerClass}
+              style={fullScreenCamera ? undefined : { aspectRatio: "4/3" }}
+            >
               <video
                 ref={videoRef}
                 className={`w-full h-full object-cover ${cameraActive ? "block" : "hidden"}`}
@@ -420,213 +498,244 @@ export function ScannerPanel({
                   </Badge>
                 </div>
               )}
+
+              {fullScreenCamera && (
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-5 py-4 bg-black/50 backdrop-blur-sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 bg-white/80 hover:bg-white"
+                    onClick={cameraActive ? stopCamera : startCamera}
+                  >
+                    {cameraActive ? (
+                      <><CameraOff className="size-4" /> Stop</>
+                    ) : (
+                      <><Camera className="size-4" /> Start Camera</>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={capturePhoto}
+                    disabled={!cameraActive || isCapturing || isCaptureDisabled}
+                    className="flex size-14 items-center justify-center rounded-full border-4 border-teal-300 bg-white/80 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity active:scale-95"
+                    title="Capture answer sheet"
+                  >
+                    <Circle className="size-8 fill-teal-700 text-teal-700" />
+                  </Button>
+
+                  <div className="w-20" />
+                </div>
+              )}
             </div>
 
             {/* Camera controls */}
-            <div className="flex items-center justify-between px-5 py-4 bg-background">
-              {/* Toggle camera */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={cameraActive ? stopCamera : startCamera}
-              >
-                {cameraActive ? (
-                  <><CameraOff className="size-4" /> Stop</>
-                ) : (
-                  <><Camera className="size-4" /> Start Camera</>
+            {!fullScreenCamera && (
+              <div className="flex items-center justify-between px-5 py-4 bg-background">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={cameraActive ? stopCamera : startCamera}
+                >
+                  {cameraActive ? (
+                    <><CameraOff className="size-4" /> Stop</>
+                  ) : (
+                    <><Camera className="size-4" /> Start Camera</>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={capturePhoto}
+                  disabled={!cameraActive || isCapturing || isCaptureDisabled}
+                  className="flex size-14 items-center justify-center rounded-full border-4 border-teal-700 bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-opacity active:scale-95"
+                  title="Capture answer sheet"
+                >
+                  <Circle className="size-8 fill-teal-700 text-teal-700" />
+                </Button>
+
+                <div className="w-20" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!fullScreenCamera && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-sm font-medium">Examinee Details</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="examineeId">Examinee ID Number</Label>
+                <Input
+                  id="examineeId"
+                  placeholder="e.g., 000000"
+                  value={examineeId}
+                  onChange={(e) => {
+                    setExamineeId(e.target.value)
+                    if (scanError) setScanError(null)
+                    if (examineeNotFound) setExamineeNotFound(false)
+                    if (examineeLookupError) setExamineeLookupError(null)
+                  }}
+                />
+                {isCheckingExaminee && (
+                  <p className="text-xs text-muted-foreground">
+                    Checking examinee ID...
+                  </p>
                 )}
-              </Button>
-
-              {/* Capture button */}
-              <Button
-                onClick={capturePhoto}
-                disabled={!cameraActive || isCapturing || isCaptureDisabled}
-                className="flex size-14 items-center justify-center rounded-full border-4 border-teal-700 bg-background disabled:opacity-40 disabled:cursor-not-allowed transition-opacity active:scale-95"
-                title="Capture answer sheet"
-              >
-                <Circle className="size-8 fill-teal-700 text-teal-700" />
-              </Button>
-
-              {/* Spacer to balance layout */}
-              <div className="w-20" />
+                {isDuplicateExaminee && (
+                  <p className="text-xs text-amber-600">
+                    This examinee ID was already scanned.
+                  </p>
+                )}
+                {examineeNotFound && (
+                  <p className="text-xs text-red-500">
+                    No student found for this examinee ID.
+                  </p>
+                )}
+                {examineeLookupError && (
+                  <p className="text-xs text-red-500">{examineeLookupError}</p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="answerKeyVersion">Answer Key</Label>
+                <Select
+                  value={selectedKeyVersion}
+                  onValueChange={(val) => {
+                    setSelectedKeyVersion(val)
+                    if (scanError) setScanError(null)
+                  }}
+                >
+                  <SelectTrigger id="answerKeyVersion">
+                    <SelectValue placeholder="Select version" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {keyVersionOptions.map((version) => (
+                      <SelectItem key={version} value={version}>
+                        Version {version}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* ── Examinee details ── */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <p className="text-sm font-medium">Examinee Details</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="examineeId">Examinee ID Number</Label>
-              <Input
-                id="examineeId"
-                placeholder="e.g., 000000"
-                value={examineeId}
-                onChange={(e) => {
-                  setExamineeId(e.target.value)
-                  if (scanError) setScanError(null)
-                  if (examineeNotFound) setExamineeNotFound(false)
-                  if (examineeLookupError) setExamineeLookupError(null)
-                }}
-              />
-              {isCheckingExaminee && (
-                <p className="text-xs text-muted-foreground">
-                  Checking examinee ID...
-                </p>
-              )}
-              {isDuplicateExaminee && (
-                <p className="text-xs text-amber-600">
-                  This examinee ID was already scanned.
-                </p>
-              )}
-              {examineeNotFound && (
-                <p className="text-xs text-red-500">
-                  No student found for this examinee ID.
-                </p>
-              )}
-              {examineeLookupError && (
-                <p className="text-xs text-red-500">{examineeLookupError}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="answerKeyVersion">Answer Key</Label>
-              <Select
-                value={selectedKeyVersion}
-                onValueChange={(val) => {
-                  setSelectedKeyVersion(val)
-                  if (scanError) setScanError(null)
-                }}
-              >
-                <SelectTrigger id="answerKeyVersion">
-                  <SelectValue placeholder="Select version" />
-                </SelectTrigger>
-                <SelectContent>
-                  {keyVersionOptions.map((version) => (
-                    <SelectItem key={version} value={version}>
-                      Version {version}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Latest answers ── */}
-      <Card>
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Latest Answers</p>
-            {processingMs !== null && (
-              <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                {processingMs} ms
-              </Badge>
-            )}
-          </div>
-          {lastGrading && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {typeof lastGrading.scorePercent === "number" && (
-                <Badge className="bg-teal-700 text-white">
-                  {Math.round(lastGrading.scorePercent)}%
+      {!fullScreenCamera && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Latest Answers</p>
+              {processingMs !== null && (
+                <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                  {processingMs} ms
                 </Badge>
               )}
-              {typeof lastGrading.totalScore === "number" &&
-                typeof lastGrading.totalItems === "number" && (
-                  <span className="text-xs text-muted-foreground">
-                    {lastGrading.totalScore}/{lastGrading.totalItems}
-                  </span>
+            </div>
+            {lastGrading && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {typeof lastGrading.scorePercent === "number" && (
+                  <Badge className="bg-teal-700 text-white">
+                    {Math.round(lastGrading.scorePercent)}%
+                  </Badge>
                 )}
-              {typeof lastGrading.passed === "boolean" && (
-                <Badge
-                  className={
-                    lastGrading.passed
-                      ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
-                      : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                  }
-                >
-                  {lastGrading.passed ? "Passed" : "Failed"}
-                </Badge>
-              )}
-            </div>
-          )}
-          {scanError && <p className="text-xs text-red-500">{scanError}</p>}
-          {lastWarnings.length > 0 && (
-            <p className="text-xs text-amber-600">Warnings: {lastWarnings.join(", ")}</p>
-          )}
-          {!lastAnswers ? (
-            <p className="text-xs text-muted-foreground">Capture a scan to view answers.</p>
-          ) : (
-            <div className="max-h-64 overflow-auto rounded-md border">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/60">
-                  <tr>
-                    <th className="text-left font-medium px-3 py-2">Question</th>
-                    <th className="text-left font-medium px-3 py-2">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(lastAnswers)
-                    .sort((a, b) => Number(a[0]) - Number(b[0]))
-                    .map(([q, ans]) => (
-                      <tr key={q} className="border-t">
-                        <td className="px-3 py-1.5">Q{q}</td>
-                        <td className="px-3 py-1.5 font-medium">{ans}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Summary bar ── */}
-      <div>
-        <p className="text-sm font-medium">Scanned Papers</p>
-        <p className="text-xs text-muted-foreground">
-          {gradedCount} of {allPapers.length} papers graded for {examTitle}
-        </p>
-      </div>
-
-      {/* ── Papers list ── */}
-      <Card>
-        <CardContent className="p-0">
-          {allPapers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <FileImage className="size-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">No papers scanned yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Use the camera to scan answer sheets and begin automated grading
-              </p>
-            </div>
-          ) : (
-            allPapers.map((paper, idx) => (
-              <div key={paper.id}>
-                <div className="flex items-center justify-between px-4 py-3 gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-muted shrink-0">
-                      <FileImage className="size-4 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{paper.studentName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {paper.studentId} · {paper.scannedAt}
-                      </p>
-                    </div>
-                  </div>
-                  {statusBadge(paper.status)}
-                </div>
-                {idx < allPapers.length - 1 && <Separator />}
+                {typeof lastGrading.totalScore === "number" &&
+                  typeof lastGrading.totalItems === "number" && (
+                    <span className="text-xs text-muted-foreground">
+                      {lastGrading.totalScore}/{lastGrading.totalItems}
+                    </span>
+                  )}
+                {typeof lastGrading.passed === "boolean" && (
+                  <Badge
+                    className={
+                      lastGrading.passed
+                        ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                    }
+                  >
+                    {lastGrading.passed ? "Passed" : "Failed"}
+                  </Badge>
+                )}
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            )}
+            {scanError && <p className="text-xs text-red-500">{scanError}</p>}
+            {lastWarnings.length > 0 && (
+              <p className="text-xs text-amber-600">Warnings: {lastWarnings.join(", ")}</p>
+            )}
+            {!lastAnswers ? (
+              <p className="text-xs text-muted-foreground">Capture a scan to view answers.</p>
+            ) : (
+              <div className="max-h-64 overflow-auto rounded-md border">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/60">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Question</th>
+                      <th className="text-left font-medium px-3 py-2">Answer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(lastAnswers)
+                      .sort((a, b) => Number(a[0]) - Number(b[0]))
+                      .map(([q, ans]) => (
+                        <tr key={q} className="border-t">
+                          <td className="px-3 py-1.5">Q{q}</td>
+                          <td className="px-3 py-1.5 font-medium">{ans}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!fullScreenCamera && (
+        <div>
+          <p className="text-sm font-medium">Scanned Papers</p>
+          <p className="text-xs text-muted-foreground">
+            {gradedCount} of {allPapers.length} papers graded for {examTitle}
+          </p>
+        </div>
+      )}
+
+      {!fullScreenCamera && (
+        <Card>
+          <CardContent className="p-0">
+            {allPapers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <FileImage className="size-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">No papers scanned yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Use the camera to scan answer sheets and begin automated grading
+                </p>
+              </div>
+            ) : (
+              allPapers.map((paper, idx) => (
+                <div key={paper.id}>
+                  <div className="flex items-center justify-between px-4 py-3 gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-muted shrink-0">
+                        <FileImage className="size-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{paper.studentName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {paper.studentId} · {paper.scannedAt}
+                        </p>
+                      </div>
+                    </div>
+                    {statusBadge(paper.status)}
+                  </div>
+                  {idx < allPapers.length - 1 && <Separator />}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

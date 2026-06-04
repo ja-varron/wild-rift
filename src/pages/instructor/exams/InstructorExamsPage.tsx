@@ -1,9 +1,17 @@
 import { useMemo, useRef, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Plus, ArrowLeft, AlertCircle, Calendar, KeyRound, ScanLine, Users, BarChart3, BookOpen, ClipboardList } from "lucide-react"
+import { Plus, ArrowLeft, AlertCircle, KeyRound, ScanLine, Users, BarChart3, BookOpen, ClipboardList } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type { Exam } from "@/model/exam"
 import { toast } from "sonner"
 import { AddExamDialog } from "./dialogs/AddExamDialog"
@@ -21,16 +29,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { AnswerKeyEditor } from "./components/AnswerKeyEditor"
 import { ExamAnalyticsPanel } from "./components/ExamAnalyticsPanel"
 import { StudentScoresTable } from "./components/StudentScoresTable"
-import type { AnswerKeyItem, ExamTopic, ScannedPaper, StudentResult } from "./types"
+import type { AnswerKeyItem, ExamTopic, StudentResult } from "./types"
 import {
   deleteAnswerKeyVersion,
   getAnswerKeyVersionsByExam,
   saveAnswerKeysFromEditor,
+  type AnswerKeyVersionRecord,
 } from "@/lib/supabase/exam/answer-key-service"
-import { useCreateScoreResults } from "@/lib/supabase/exam/context/use-create-score-results"
 import { useCreateFeedback } from "@/lib/supabase/feedback/context/use-create-feedback"
 import { useFetchFeedback } from "@/lib/supabase/feedback/context/use-fetch-feedback"
-import { ScannerPanel } from "./components/ScannerPanel"
+import { useNavigate, useSearchParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 
 export type ExamFormData = {
   title: string
@@ -50,62 +59,55 @@ const defaultFormData: ExamFormData = {
   topics: "",
 }
 
-const ANSWER_CHOICES = ["A", "B", "C", "D", "E"] as const
-
-type AnswerChoice = (typeof ANSWER_CHOICES)[number]
-
-function normalizeAnswerValue(value: unknown): AnswerChoice | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const idx = Math.trunc(value)
-    if (idx >= 1 && idx <= ANSWER_CHOICES.length) return ANSWER_CHOICES[idx - 1]
-    return null
-  }
-
-  if (typeof value !== "string") return null
-  const trimmed = value.trim().toUpperCase()
-  if (!trimmed) return null
-  if (ANSWER_CHOICES.includes(trimmed as AnswerChoice)) {
-    return trimmed as AnswerChoice
-  }
-  const parsed = Number.parseInt(trimmed, 10)
-  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= ANSWER_CHOICES.length) {
-    return ANSWER_CHOICES[parsed - 1]
-  }
-  return null
-}
-
-function getNormalizedAnswer(
-  answers: Record<string, string> | string[] | undefined,
-  questionNumber: number,
-): AnswerChoice | null {
-  if (!answers) return null
-  if (Array.isArray(answers)) {
-    return normalizeAnswerValue(answers[questionNumber - 1])
-  }
-
-  const value = answers[String(questionNumber)]
-  return normalizeAnswerValue(value)
-}
-
-
 const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
   // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
   const { exams, isLoading, refetch } = useFetchExams(userProfile?.course?.course_id!)
   const { mutateAsync: createExam, isPending: isCreatePending } = useCreateExam()
   const { mutateAsync: updateExam, isPending: isUpdatePending } = useUpdateExam()
-  const { mutateAsync: createScoreResults } = useCreateScoreResults()
   const { mutateAsync: saveFeedback } = useCreateFeedback()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [selectedExamID, setSelectedExamID] = useState<string | null>(null)
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [answerKeys, setAnswerKeys] = useState<AnswerKeyItem[]>([])
-  const [answerKeyVersions, setAnswerKeyVersions] = useState<string[]>([])
   const [studentResults, setStudentResults] = useState<StudentResult[]>([])
+  const [scannerExamineeId, setScannerExamineeId] = useState("")
+  const [scannerKeyVersion, setScannerKeyVersion] = useState("")
   const nextResultIdRef = useRef(1)
+  const examIdParam = searchParams.get("examId")
+  const activeExamId = selectedExamID || examIdParam || null
 
-  const { scoreResults } = useFetchScoreResults(selectedExamID ?? "")
-  const { feedbackEntries } = useFetchFeedback(selectedExamID ?? "")
+  const {
+    data: answerKeyRecords = [],
+    refetch: refetchAnswerKeys,
+  } = useQuery<AnswerKeyVersionRecord[]>({
+    queryKey: ["answerKeys", activeExamId],
+    queryFn: async () => {
+      if (!activeExamId) return []
+      const result = await getAnswerKeyVersionsByExam(activeExamId)
+      if (!result.success) {
+        toast.error(result.error || "Failed to load answer keys")
+        return []
+      }
+      return result.data
+    },
+    enabled: !!activeExamId,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const answerKeyVersions = useMemo(
+    () => answerKeyRecords.map((record) => record.key_version),
+    [answerKeyRecords],
+  )
+
+  const answerKeys = useMemo(
+    () => answerKeyRecords.flatMap((record) => record.answer_key),
+    [answerKeyRecords],
+  )
+
+  const { scoreResults } = useFetchScoreResults(activeExamId ?? "")
+  const { feedbackEntries } = useFetchFeedback(activeExamId ?? "")
 
   const feedbackByStudentId = useMemo(() => {
     const map = new Map<string, { comment: string; message_at: string }>()
@@ -126,8 +128,8 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
   // const [deletingExamId, setDeletingExamId] = useState<string | null>(null)
 
   const selectedExam = useMemo(
-    () => exams.find((exam) => exam.exam_id === selectedExamID),
-    [exams, selectedExamID],
+    () => exams.find((exam) => exam.exam_id === activeExamId),
+    [exams, activeExamId],
   )
 
   const topicDefinitions = useMemo<ExamTopic[]>(() => {
@@ -214,27 +216,6 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
     nextResultIdRef.current = 1
   }
 
-  async function loadAnswerKeys(examId: string) {
-    const result = await getAnswerKeyVersionsByExam(examId)
-
-    if (!result.success) {
-      toast.error(result.error || "Failed to load answer keys")
-      setAnswerKeys([])
-      setAnswerKeyVersions([])
-      return
-    }
-
-    setAnswerKeyVersions(result.data.map((record) => record.key_version))
-    setAnswerKeys(
-      result.data.flatMap((record) =>
-        record.answer_key.map((item) => ({
-          ...item,
-          exam_id: examId,
-          key_version: record.key_version,
-        })),
-      ),
-    )
-  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target
@@ -313,6 +294,18 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
     setFormData(defaultFormData)
   }
 
+  const keyVersionOptions = useMemo(
+    () => (answerKeyVersions.length > 0 ? answerKeyVersions : ["A", "B"]),
+    [answerKeyVersions],
+  )
+
+  const effectiveScannerKeyVersion = useMemo(() => {
+    if (scannerKeyVersion && keyVersionOptions.includes(scannerKeyVersion)) {
+      return scannerKeyVersion
+    }
+    return keyVersionOptions[0] ?? ""
+  }, [scannerKeyVersion, keyVersionOptions])
+
 
   async function handleSaveAnswerKeys(
     exam_id: string,
@@ -338,152 +331,8 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
       return
     }
 
-    await loadAnswerKeys(exam_id)
+    await refetchAnswerKeys()
     toast.success("Answer keys saved successfully")
-  }
-
-  function handleScanCapture(
-    paper: ScannedPaper,
-    scanResult?: {
-      resultId: string
-      answers?: Record<string, string> | string[]
-      answerKeyVersion?: string
-      studentName?: string | null
-      examineeId?: string
-    },
-  ) {
-    if (!selectedExam) return
-
-    const answers = scanResult?.answers
-    if (!answers) {
-      toast.error("No answers returned from the scan.")
-      return
-    }
-
-    const keyVersion = scanResult?.answerKeyVersion
-    if (!keyVersion) {
-      toast.error("Missing answer key version for this scan.")
-      return
-    }
-
-    const keyItems = answerKeys
-      .filter((key) => key.key_version === keyVersion)
-      .sort((a, b) => a.question_number - b.question_number)
-
-    if (keyItems.length === 0) {
-      toast.error(`No answer key found for version ${keyVersion}.`)
-      return
-    }
-
-    const topics = topicDefinitions.length > 0
-      ? topicDefinitions
-      : [{ topic_idx: 1, name: "General" }]
-    const topicIdByName = new Map(
-      topics.map((topic) => [topic.name.trim().toLowerCase(), topic.topic_idx]),
-    )
-    const topicTotals = new Map<number, { score: number; maxScore: number }>()
-    topics.forEach((topic) => {
-      topicTotals.set(topic.topic_idx, { score: 0, maxScore: 0 })
-    })
-
-    let totalScore = 0
-    let totalMax = 0
-
-    for (const keyItem of keyItems) {
-      const points = Number.isFinite(keyItem.points) ? keyItem.points : 1
-      totalMax += points
-
-      const topicLabel =
-        typeof keyItem.topic === "string"
-          ? keyItem.topic
-          : keyItem.topic?.name
-      const topicKey = topicLabel?.trim().toLowerCase()
-        || topics[0].name.trim().toLowerCase()
-      const topicId = topicIdByName.get(topicKey) ?? topics[0].topic_idx
-      const bucket = topicTotals.get(topicId) ?? { score: 0, maxScore: 0 }
-      bucket.maxScore += points
-
-      const answer = getNormalizedAnswer(answers, keyItem.question_number)
-      if (answer && answer === keyItem.correct_answer) {
-        bucket.score += points
-        totalScore += points
-      }
-      topicTotals.set(topicId, bucket)
-    }
-
-    const topicScores = topics.map((topic) => {
-      const bucket = topicTotals.get(topic.topic_idx) ?? { score: 0, maxScore: 0 }
-      return {
-        topicId: topic.topic_idx,
-        score: bucket.score,
-        maxScore: Math.max(1, bucket.maxScore),
-      }
-    })
-
-    const topicScoresPayload = topics.map((topic) => {
-      const bucket = topicTotals.get(topic.topic_idx) ?? { score: 0, maxScore: 0 }
-      const safeMax = Math.max(1, bucket.maxScore)
-      return {
-        topicId: topic.topic_idx,
-        topicName: topic.name,
-        score: bucket.score,
-        maxScore: safeMax,
-        percent: Math.round((bucket.score / safeMax) * 100),
-      }
-    })
-
-    const totalItems = totalMax > 0
-      ? totalMax
-      : Math.max(1, selectedExam.total_items)
-    const scorePercent = (totalScore / Math.max(1, totalItems)) * 100
-    const passed = scorePercent >= selectedExam.passing_rate
-
-    const resultBase = {
-      name: scanResult?.studentName || paper.studentName,
-      studentId: paper.studentId,
-      score: totalScore,
-      totalItems,
-      passed,
-      topicScores,
-      scannedAt: paper.scannedAt,
-    }
-
-    setStudentResults((prev) => {
-      const existingIndex = prev.findIndex(
-        (entry) => entry.studentId === resultBase.studentId,
-      )
-      if (existingIndex >= 0) {
-        const existing = prev[existingIndex]
-        const next = [...prev]
-        next[existingIndex] = {
-          ...existing,
-          ...resultBase,
-          id: existing.id,
-          feedback: existing.feedback,
-        }
-        return next
-      }
-
-      const nextId = nextResultIdRef.current++
-      return [{ id: nextId, ...resultBase }, ...prev]
-    })
-
-    void createScoreResults({
-      examId: selectedExam.exam_id,
-      examineeId: scanResult?.examineeId ?? paper.studentId,
-      answers,
-      scorePayload: {
-        totalScore,
-        totalItems,
-        scorePercent,
-        passed,
-        answerKeyVersion: keyVersion,
-        scannedAt: paper.scannedAt,
-        topicScores: topicScoresPayload,
-      },
-    }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to store scan results.")
-    })
   }
 
   async function handleUpdateFeedback(studentId: string, feedback: string) {
@@ -549,9 +398,14 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                       className="shrink-0 mt-0.5"
                       onClick={() => {
                         setSelectedExamID(null)
-                        setAnswerKeys([])
-                        setAnswerKeyVersions([])
                         resetResults()
+                        setScannerExamineeId("")
+                        setScannerKeyVersion("")
+                        if (searchParams.has("examId")) {
+                          const nextParams = new URLSearchParams(searchParams)
+                          nextParams.delete("examId")
+                          setSearchParams(nextParams, { replace: true })
+                        }
                       }}
                     >
                       <ArrowLeft className="size-4" />
@@ -637,14 +491,73 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                       />
                     </TabsContent>
 
-                    <TabsContent value="scanner" className="mt-4">
-                      <ScannerPanel
-                        examId={selectedExam.exam_id}
-                        scannedPapers={[]}
-                        examTitle={""}
-                        answerKeyVersions={answerKeyVersions}
-                        onCapture={handleScanCapture}
-                      />
+                    <TabsContent value="scanner" className="mt-4 space-y-4">
+                      {answerKeyVersions.length === 0 && (
+                        <Alert>
+                          <AlertCircle className="size-4" />
+                          <AlertDescription>
+                            Add an answer key version before starting the scanner.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <Card>
+                        <CardContent className="p-4 space-y-4">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                              <Label htmlFor="scannerExamineeId">Examinee ID Number</Label>
+                              <Input
+                                id="scannerExamineeId"
+                                placeholder="e.g., 000000"
+                                value={scannerExamineeId}
+                                onChange={(event) => setScannerExamineeId(event.target.value)}
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="scannerAnswerKey">Answer Key</Label>
+                              <Select
+                                value={effectiveScannerKeyVersion}
+                                onValueChange={setScannerKeyVersion}
+                              >
+                                <SelectTrigger id="scannerAnswerKey">
+                                  <SelectValue placeholder="Select version" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {keyVersionOptions.map((version) => (
+                                    <SelectItem key={version} value={version}>
+                                      Version {version}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-muted-foreground">
+                              The scanner opens in a dedicated page for camera-only capture.
+                            </p>
+                            <Button
+                              className="gap-1.5 bg-teal-700 hover:bg-teal-800"
+                              disabled={!scannerExamineeId.trim() || !effectiveScannerKeyVersion}
+                              onClick={() => {
+                                if (!selectedExam) return
+                                const trimmedId = scannerExamineeId.trim()
+                                if (!trimmedId) {
+                                  toast.error("Enter an examinee ID number to continue.")
+                                  return
+                                }
+                                const nextParams = new URLSearchParams()
+                                nextParams.set("examineeId", trimmedId)
+                                if (effectiveScannerKeyVersion) {
+                                  nextParams.set("keyVersion", effectiveScannerKeyVersion)
+                                }
+                                navigate(`/instructor/exams/${selectedExam.exam_id}/scanner?${nextParams.toString()}`)
+                              }}
+                            >
+                              <ScanLine className="size-4" /> Open Scanner
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </TabsContent>
 
                     <TabsContent value="scores" className="mt-4">
@@ -712,8 +625,12 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                           exam={exam}
                           onSelect={() => {
                             setSelectedExamID(exam.exam_id)
-                            void loadAnswerKeys(exam.exam_id)
                             resetResults()
+                            setScannerExamineeId("")
+                            setScannerKeyVersion("")
+                            const nextParams = new URLSearchParams(searchParams)
+                            nextParams.set("examId", exam.exam_id)
+                            setSearchParams(nextParams, { replace: true })
                           }}
                         />
                       ))}
