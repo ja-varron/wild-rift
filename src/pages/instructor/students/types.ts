@@ -12,7 +12,9 @@ export type ExamResult = {
   date: string
   score: number
   totalItems: number
+  passingRate: number
   passed: boolean
+  attempted: boolean
   topicScores: TopicScore[]
   feedback?: string
 }
@@ -48,8 +50,9 @@ export function scoreColor(pct: number) {
   return pct >= 75 ? "text-green-600" : "text-red-500"
 }
 
+// Calculate analytics for a student based on their exam results
 export function getStudentAnalytics(student: Student): StudentAnalytics | null {
-  const results = student.examResults
+  const results = student.examResults.filter((r) => r.attempted)
   if (results.length === 0) return null
 
   const avgScore = Math.round(
@@ -58,8 +61,12 @@ export function getStudentAnalytics(student: Student): StudentAnalytics | null {
   const passRate = Math.round(
     (results.filter((r) => r.passed).length / results.length) * 100,
   )
-  const highest = Math.max(...results.map((r) => Math.round((r.score / r.totalItems) * 100)))
-  const lowest = Math.min(...results.map((r) => Math.round((r.score / r.totalItems) * 100)))
+  const highest = results.length > 0
+    ? Math.max(...results.map((r) => Math.round((r.score / r.totalItems) * 100)))
+    : 0
+  const lowest = results.length > 0
+    ? Math.min(...results.map((r) => Math.round((r.score / r.totalItems) * 100)))
+    : 0
 
   const topicMap = new Map<number, { name: string; totalPct: number; count: number }>()
   for (const r of results) {

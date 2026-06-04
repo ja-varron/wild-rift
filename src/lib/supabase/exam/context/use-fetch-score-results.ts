@@ -3,6 +3,19 @@ import { supabase } from "../../supabase"
 import { useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
+// ── Dashboard exam result shape (student-centric) ─────────────────────────────
+export type DashboardExamResult = {
+  id: string
+  title: string
+  date: string
+  course: string
+  attempted: boolean
+  passed: boolean
+  percentage: number
+  score: number
+  totalItems: number
+}
+
 type ScoreTopicPayload = {
   topicId?: number
   topicName?: string
@@ -149,3 +162,99 @@ const useFetchScoreResults = (examId: string) => {
 }
 
 export { useFetchScoreResults }
+
+// ── Student-scoped fetch: all exams the student has score results for ──────────
+
+const getScoreResultsByStudent = async (studentId: string): Promise<DashboardExamResult[]> => {
+  const { data, error } = await supabase
+    .from('score_results')
+    .select(`
+      score_result_id,
+      exam_id,
+      scores,
+      scanned_at,
+      exams!inner(
+        exam_id,
+        exam_title,
+        exam_date,
+        total_items,
+        passing_rate,
+        courses(course_name)
+      )
+    `)
+    .eq('student_id', studentId)
+    .order('scanned_at', { ascending: false })
+
+  if (error) {
+    console.error("Error fetching student score results:", error)
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((row) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const exam = (Array.isArray((row as any).exams) ? (row as any).exams[0] : (row as any).exams) ?? {}
+    const rawCourse = Array.isArray(exam.courses) ? exam.courses[0] : exam.courses
+    const courseName: string = rawCourse?.course_name ?? "Course"
+
+    const payload = parseScorePayload(row.scores)
+
+    const totalItems = Math.max(1, Number(payload.totalItems ?? exam.total_items ?? 1) || 1)
+    const passingRate = Number(exam.passing_rate ?? 75) || 75
+
+    const derivedScore =
+      payload.scorePercent !== undefined && payload.scorePercent !== null
+        ? Math.round((Number(payload.scorePercent) / 100) * totalItems)
+        : 0
+    const score = Number(payload.totalScore ?? derivedScore) || 0
+
+    const percentage =
+      payload.scorePercent !== undefined && payload.scorePercent !== null
+        ? Math.round(Number(payload.scorePercent))
+        : totalItems > 0
+          ? Math.round((score / totalItems) * 100)
+          : 0
+
+    const passed =
+      typeof payload.passed === "boolean"
+        ? payload.passed
+        : percentage >= passingRate
+
+    return {
+      id: row.score_result_id ?? `${row.exam_id}-${studentId}`,
+      title: exam.exam_title ?? `Exam ${row.exam_id}`,
+      date: exam.exam_date ?? row.scanned_at ?? new Date().toISOString(),
+      course: courseName,
+      attempted: true, // Row exists in score_results → attempted
+      passed,
+      percentage,
+      score,
+      totalItems,
+    }
+  })
+}
+
+const useFetchScoreResultsByStudent = (studentId: string | undefined) => {
+  const queryClient = useQueryClient()
+
+  const { data: examResults, isLoading, refetch } = useQuery({
+    queryKey: ["scoreResultsByStudent", studentId],
+    queryFn: () => getScoreResultsByStudent(studentId!),
+    enabled: !!studentId,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        queryClient.invalidateQueries({ queryKey: ['scoreResultsByStudent', studentId] })
+      } else if (event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ['scoreResultsByStudent', studentId] })
+      }
+    })
+    return () => { subscription.unsubscribe() }
+  }, [queryClient, studentId])
+
+  return { examResults: examResults ?? [], isLoading, refetch }
+}
+
+export { useFetchScoreResultsByStudent }

@@ -11,11 +11,11 @@ import { ChartCard } from "./components/ChartCard"
 import { UpcomingExams } from "./components/UpcomingExams"
 import { RecentExams } from "./components/RecentExams"
 import { SummaryStatsCard } from "@/components/custom/SummaryStatsCard"
-import { useFetchProfile } from "@/lib/supabase/authentication/context/use-fetch-profile"
-import { useFetchStudentExams } from "@/lib/supabase/exam/context/use-fetch-student-exams"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, ClipboardCheck, MessageSquare, Target } from "lucide-react"
+import type { UserProfile } from "@/model/user-profile"
+import { useFetchScoreResultsByStudent } from "@/lib/supabase/exam/context/use-fetch-score-results"
 
 const lineChartConfig: ChartConfig = {
   score: {
@@ -24,9 +24,11 @@ const lineChartConfig: ChartConfig = {
   },
 }
 
-const StudentDashboardPage = () => {
-  const { authUser, userProfile, isLoading: isLoadingUser } = useFetchProfile()
-  const { data: exams, isLoading: isLoadingExams } = useFetchStudentExams(authUser?.id)
+const StudentDashboardPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const studentId = userProfile?.user_id
+  const isLoadingUser = userProfile === undefined
+  const { examResults: exams, isLoading: isLoadingExams } = useFetchScoreResultsByStudent(studentId)
+
   const submittedExams = useMemo(() => (exams || []).filter((exam) => exam.attempted === true), [exams])
 
   const summaryStats = useMemo(() => {
@@ -80,7 +82,7 @@ const StudentDashboardPage = () => {
   const welcomeMessage = useMemo(() => {
     if (isLoadingUser) return "Welcome back! Here's your activity summary."
     if (!userProfile) return "Welcome! Here's your activity summary."
-    return `Welcome back, ${userProfile.getFirstName}! Here's your activity summary.`
+    return `Welcome back, ${userProfile.first_name}! Here's your activity summary.`
   }, [userProfile, isLoadingUser])
 
   const topInsight = useMemo(() => {
