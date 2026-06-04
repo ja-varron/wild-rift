@@ -11,6 +11,7 @@ erDiagram
     courses ||--o{ exams : "contains (cascade)"
     profiles ||--o{ exams : "creates (set null)"
     exams ||--o{ answer_keys : "has answer keys (cascade)"
+    exams ||--o{ question_keys : "has question keys (cascade)"
     exams ||--o{ exam_papers : "has answers (cascade)"
     profiles ||--o{ exam_papers : "submits (cascade)"
     exams ||--o{ score_results : "has results (cascade)"
@@ -76,22 +77,24 @@ erDiagram
     exam_papers {
         uuid paper_id PK
         uuid exam_id FK
-        uuid user_id FK
+        uuid student_id FK
         jsonb actual_answers
         timestamptz created_at
     }
 
     score_results {
+        uuid score_result_id PK
         uuid exam_id FK
         uuid student_id FK "FK to profiles"
         jsonb scores
+        timestamptz scanned_at
     }
 
     feedbacks {
         uuid feedback_id PK
         uuid exam_id FK
-        uuid user_id FK
+        uuid student_id FK
         text comment
-        timestamptz created_at
+        timestamptz message_at
     }
 ```
