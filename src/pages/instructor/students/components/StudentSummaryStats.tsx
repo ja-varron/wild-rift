@@ -11,19 +11,19 @@ interface StudentSummaryStatsProps {
 }
 
 const StudentSummaryStats = ({ students }: StudentSummaryStatsProps) => {
-  const allResults = students.flatMap((s) => s.examResults)
+  const allAttempted = students.flatMap((s) => s.examResults.filter((r) => r.attempted))
   const avgScore =
-    allResults.length > 0
+    allAttempted.length > 0
       ? Math.round(
-          allResults.reduce((sum, r) => sum + Math.round((r.score / r.totalItems) * 100), 0) /
-            allResults.length,
+          allAttempted.reduce((sum, r) => sum + Math.round((r.score / r.totalItems) * 100), 0) /
+            allAttempted.length,
         )
       : 0
 
   const stats = [
     { label: "Total Students", value: `${students.length}`, icon: Users },
-    { label: "Exams Conducted", value: `${allResults.length}`, icon: ClipboardList },
-    { label: "Avg. Score", value: `${avgScore}%`, icon: TrendingUp },
+    { label: "Exams Submitted", value: `${allAttempted.length}`, icon: ClipboardList },
+    { label: "Avg. Score", value: allAttempted.length > 0 ? `${avgScore}%` : "—", icon: TrendingUp },
   ]
 
   return (
