@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Zap,
 } from "lucide-react"
+import { Link } from "react-router-dom"
 
 // ── Data ───────────────────────────────────────────────────────────────────────
 
@@ -92,10 +93,10 @@ const roles = [
 
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen w-full bg-background text-foreground">
 
       {/* ── Navbar ── */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Tuon logo" className="h-9 w-9 object-contain" />
@@ -108,17 +109,17 @@ const LandingPage = () => {
           </nav>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
-              <a href="/login">Log in</a>
+              <Link to="/login">Log in</Link>
             </Button>
             <Button size="sm" className="bg-teal-700 hover:bg-teal-800 text-white" asChild>
-              <a href="/login">Get Started <ArrowRight className="ml-1.5 size-3.5" /></a>
+              <Link to="/login">Get Started <ArrowRight className="ml-1.5 size-3.5" /></Link>
             </Button>
           </div>
         </div>
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden px-6 py-24 sm:py-32">
+      <section className="relative flex min-h-[calc(100svh-4rem)] w-full items-center overflow-hidden px-6 py-12 sm:py-16">
         {/* Background gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-teal-500/10 blur-3xl" />
@@ -141,7 +142,7 @@ const LandingPage = () => {
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Button size="lg" className="w-full bg-teal-700 hover:bg-teal-800 text-white sm:w-auto" asChild>
-              <a href="/login">Get Started <ArrowRight className="ml-2 size-4" /></a>
+              <Link to="/login">Get Started <ArrowRight className="ml-2 size-4" /></Link>
             </Button>
             <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
               <a href="#how-it-works">See How It Works</a>
@@ -242,12 +243,12 @@ const LandingPage = () => {
       </section>
 
       {/* ── CTA Banner ── */}
-      <section className="px-6 py-16 bg-teal-700">
-        <div className="mx-auto max-w-3xl text-center">
+      <section className="w-full bg-teal-700 px-6 py-16">
+        <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <h2 className="mb-3 text-3xl font-bold text-white sm:text-4xl">Ready to get started?</h2>
           <p className="mb-8 text-teal-100">Join the VSU Review Center's automated exam evaluation platform today.</p>
           <Button size="lg" className="bg-white text-teal-700 hover:bg-teal-50 font-semibold" asChild>
-            <a href="/login">Log In to Tuon <ArrowRight className="ml-2 size-4" /></a>
+            <Link to="/login">Log In to Tuon <ArrowRight className="ml-2 size-4" /></Link>
           </Button>
         </div>
       </section>

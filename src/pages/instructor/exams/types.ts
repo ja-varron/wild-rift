@@ -41,6 +41,7 @@ export interface Exam {
   id: number
   title: string
   course: string
+  location?: string
   date: string
   totalItems: number
   passingRate: number

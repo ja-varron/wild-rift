@@ -25,7 +25,7 @@ const CourseCard = ({
   onEditCourse,
   onDeleteCourse,
 }: CourseCardProps) => {
-  const { roleCount, isLoading } = useCourseRoleCount(course.getCourseId)
+  const { roleCount, isLoading } = useCourseRoleCount(course.course_id)
 
   return (
     <Card>
@@ -33,9 +33,9 @@ const CourseCard = ({
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base font-semibold">{course.getCourseName}</CardTitle>
+              <CardTitle className="text-base font-semibold">{course.course_name}</CardTitle>
             </div>
-            <p className="text-sm text-muted-foreground">{course.getCourseDescription}</p>
+            <p className="text-sm text-muted-foreground">{course.course_description}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <Button variant="ghost" size="icon" className="size-8" onClick={() => onEditCourse(course)}>
@@ -45,7 +45,7 @@ const CourseCard = ({
               variant="ghost"
               size="icon"
               className="size-8 text-destructive hover:text-destructive"
-              onClick={() => onDeleteCourse(course.getCourseId, course.getCourseName)}
+              onClick={() => onDeleteCourse(course.course_id, course.course_name)}
             >
               <Trash2 className="size-3.5" />
             </Button>

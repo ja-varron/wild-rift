@@ -19,13 +19,14 @@ import {
   Users,
 } from "lucide-react"
 import { DeleteConfirmationDialog } from "./dialogs/DeleteConfirmationDialog"
-import { UserProfile } from "@/model/user-profile"
+import type { UserProfile } from "@/model/user-profile"
 import { adminSignUp } from "@/lib/supabase/authentication/auth"
-import supabase from "@/lib/supabase/supabase"
+import { supabase } from "@/lib/supabase/supabase"
 import { toast } from "sonner"
 import { useFetchUsers } from "@/lib/supabase/authentication/context/use-fetch-users"
-
-const courses = ["BSCS", "BSIT", "BSN", "BSEd", "BSA", "BSCE"]
+import { useFetchCourses } from "@/lib/supabase/course/context/use-fetch-courses"
+import { generateRandomPassword } from "@/lib/password-generator"
+import { sendWelcomeEmail } from "@/lib/supabase/email/email"
 
 
 // ── Empty form state ───────────────────────────────────────────────────────────
@@ -35,13 +36,16 @@ const emptyForm = {
   middleName: "",
   lastName: "",
   email: "",
+  password: "",
   role: "Student" as "Student" | "Instructor" | "Admin",
+  prcExamType: ""
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const AdminAccountsPage = () => {
-  const { users, isLoading } = useFetchUsers()
+const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const { users, isLoading, refetch } = useFetchUsers(userProfile?.institution_id!)
+  const { courses } = useFetchCourses(userProfile?.institution_id!)
 
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<"All" | "Student" | "Instructor">("All")
@@ -50,6 +54,7 @@ const AdminAccountsPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -58,18 +63,18 @@ const AdminAccountsPage = () => {
   // ── Filtering & pagination ──
   const filtered = useMemo(() => {
     return users.filter((a) => {
-      const name = a.fullName.toLowerCase()
+      const name = a.first_name.toLowerCase()
       const matchesSearch =
         name.includes(search.toLowerCase()) ||
-        a.getEmailAddress.toLowerCase().includes(search.toLowerCase())
-      const matchesRole = roleFilter === "All" || a.getUserRole === roleFilter
+        a.email.toLowerCase().includes(search.toLowerCase())
+      const matchesRole = roleFilter === "All" || a.role === roleFilter
       return matchesSearch && matchesRole
     })
   }, [users, search, roleFilter])
 
   // ── Counts ──
-  const studentCount = users.filter((a) => a.getUserRole === "Student").length
-  const instructorCount = users.filter((a) => a.getUserRole === "Instructor").length
+  const studentCount = users.filter((a) => a.role === "Student").length
+  const instructorCount = users.filter((a) => a.role === "Instructor").length
 
 
   // ── Handlers ──
@@ -80,14 +85,15 @@ const AdminAccountsPage = () => {
   }
 
   function openEdit(account: UserProfile) {
-    setEditingId(account.getUserId)
+    setEditingId(account.user_id!)
     setForm({
-      firstName: account.getFirstName,
-      middleName: account.getMiddleName ?? "",
-      lastName: account.getLastName,
-      email: account.getEmailAddress,
-      role: account.getUserRole ?? "Student",
-      // course: account.getCourse ?? "",
+      firstName: account.first_name,
+      middleName: account.middle_name ?? "",
+      lastName: account.last_name,
+      email: account.email,
+      password: "", // Password is not edited here, but required to satisfy the state type
+      role: account.role ?? "Student",
+      prcExamType: account.course?.course_name ?? "",
     })
     setDialogOpen(true)
   }
@@ -98,29 +104,41 @@ const AdminAccountsPage = () => {
       return
     }
 
+    setIsSaving(true)
     try {
-      // Create user in auth
+      // Create user directly via the supabaseAdmin client (service role key).
+      // This skips email confirmation and does not affect the admin's own session.
+      const randomPassword = generateRandomPassword(8)
+
       const { data, error } = await adminSignUp(
         form.email,
-        "12345678",
+        randomPassword,
+        {
+          firstName: form.firstName,
+          middleName: form.middleName,
+          lastName: form.lastName,
+          role: form.role,
+        },
       )
 
-      if (error || !data.user) {
+      if (error || !data?.user) {
         toast.error(`Failed to create account: ${error?.message ?? "Unknown error"}`)
         return
       }
 
-      // Update the profile with the rest of the data
+      const newUserId = data.user.id
+
+      // Insert the profile row for the newly created auth user.
       const { error: profileError } = await supabase
         .from("profiles")
         .insert({
-          user_id: data.user.id,
+          user_id: newUserId,
           first_name: form.firstName,
           middle_name: form.middleName,
           last_name: form.lastName,
           email: form.email,
           role: form.role,
-          // course: form.course,
+          institution_id: userProfile?.institution_id,
         })
 
       if (profileError) {
@@ -128,13 +146,33 @@ const AdminAccountsPage = () => {
         return
       }
 
-      toast.success("Account created successfully!")
+      // Enroll the user in the selected course
+      const selectedCourse = courses.find((c) => c.course_name === form.prcExamType)
+      if (selectedCourse) {
+        const { error: enrollmentError } = await supabase
+          .from("course_enrollment")
+          .insert({
+            user_id: newUserId,
+            course_id: selectedCourse.course_id,
+          })
+
+        if (enrollmentError) {
+          toast.error(`Failed to enroll user in course: ${enrollmentError.message}`)
+        }
+      }
+
+      // Send welcome email using the Edge Function2
+      sendWelcomeEmail(form.email, randomPassword)
+
+      refetch()
       setDialogOpen(false)
       setForm(emptyForm)
       setEditingId(null)
     } catch (err) {
       toast.error("An unexpected error occurred.")
       console.error(err)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -171,7 +209,8 @@ const AdminAccountsPage = () => {
             editingId={editingId}
             form={form}
             setForm={setForm}
-            courses={courses}
+            licensureExams={courses.map((c) => c.course_name)}
+            isSaving={isSaving}
             handleSave={handleSave}
             openCreate={openCreate}
           />

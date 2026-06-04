@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 
-import { UserProfile } from "@/model/user-profile";
+import type { UserProfile } from "@/model/user-profile";
 import type { ReactNode } from "react";
 
 export default function RequireRole({
@@ -17,8 +17,10 @@ export default function RequireRole({
   
 	if (isLoading) return null;
 
-	const userRole = userProfile?.getUserRole?.toLowerCase();
-	if (!userRole || !allowedRoles.map(role => role.toLowerCase()).includes(userRole)) {
+	const userRole = userProfile?.role?.toLowerCase() ?? '';
+	const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
+
+	if (!userRole || !normalizedAllowedRoles.includes(userRole)) {
 		return <Navigate to="/" replace />;
 	}
 

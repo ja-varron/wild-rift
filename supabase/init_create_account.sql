@@ -1,33 +1,27 @@
-//Examples to add an instructor (pick one):
-Create user + promote (recommended — server-side with service role)
+-- Account setup helper script (SQL-only)
+-- Assumes `init_accounts.sql` has already been executed.
 
-import { createClient } from '@supabase/supabase-js'
-const admin = createClient(process.env.SUPABASE_URL, process.env.SERVICE_ROLE_KEY)
-
-// 1) create auth user
-const { data: user } = await admin.auth.admin.createUser({
-  email: 'instructor@example.com',
-  password: 'StrongPass123!'
-})
-
-// 2) update profile (trigger will create profile if using auth.users trigger)
-await admin
-  .from('profiles')
-  .upsert({ id: user.id, email: 'instructor@example.com', first_name: 'Alice', last_name: 'Teacher', role: 'Instructor' })
-
-
-
-
-//If user already exists, promote by email (run in Supabase SQL editor or with service role)
-
+-- 1) Promote an existing user to Instructor by email.
+-- Replace the email before running.
 UPDATE public.profiles
-SET role = 'Instructor', updated_at = now()
+SET role = 'Instructor', updated_at = now(), is_active = true
 WHERE email = 'instructor@example.com';
 
+-- 2) Optional: if you use `separate_roles.sql`, backfill the instructors table.
+-- Safe to run multiple times.
+INSERT INTO public.instructors (user_id, created_at)
+SELECT p.user_id, now()
+FROM public.profiles p
+LEFT JOIN public.instructors i ON i.user_id = p.user_id
+WHERE p.role = 'Instructor' AND i.user_id IS NULL;
 
-//Backfill role-specific table (if you separated tables)
--- create instructor row for an existing profile id
-INSERT INTO public.instructors (id, date_created)
-SELECT id, now()
-FROM public.profiles
-WHERE role = 'Instructor' AND id NOT IN (SELECT id FROM public.instructors);
+-- 3) Optional: promote an existing user to Student and backfill students table.
+-- UPDATE public.profiles
+-- SET role = 'Student', updated_at = now(), is_active = true
+-- WHERE email = 'student@example.com';
+
+-- INSERT INTO public.students (user_id, created_at)
+-- SELECT p.user_id, now()
+-- FROM public.profiles p
+-- LEFT JOIN public.students s ON s.user_id = p.user_id
+-- WHERE p.role = 'Student' AND s.user_id IS NULL;

@@ -115,12 +115,16 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    @apply w-full min-h-svh;
+  }
+
   * {
-    @apply border-border outline-ring/50;
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
     @apply bg-background text-foreground;
   }
 }
