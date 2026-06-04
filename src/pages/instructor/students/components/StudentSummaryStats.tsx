@@ -1,7 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Users,
-  BookOpen,
   ClipboardList,
   TrendingUp,
 } from "lucide-react"
@@ -23,8 +22,7 @@ const StudentSummaryStats = ({ students }: StudentSummaryStatsProps) => {
 
   const stats = [
     { label: "Total Students", value: `${students.length}`, icon: Users },
-    { label: "Courses", value: `${new Set(students.map((s) => s.course)).size}`, icon: BookOpen },
-    { label: "Exams Taken", value: `${allResults.length}`, icon: ClipboardList },
+    { label: "Exams Conducted", value: `${allResults.length}`, icon: ClipboardList },
     { label: "Avg. Score", value: `${avgScore}%`, icon: TrendingUp },
   ]
 

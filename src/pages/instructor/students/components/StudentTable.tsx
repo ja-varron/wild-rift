@@ -24,12 +24,12 @@ interface StudentTableProps {
   search: string
   onSearchChange: (value: string) => void
   pageItems: Student[]
-  selected: Set<number>
+  selected: Set<string>
   allPageSelected: boolean
   somePageSelected: boolean
   onToggleAll: () => void
-  onToggleOne: (id: number) => void
-  onSelectStudent: (id: number) => void
+  onToggleOne: (id: string) => void
+  onSelectStudent: (id: string) => void
   page: number
   totalPages: number
   onPageChange: (page: number) => void
@@ -124,20 +124,20 @@ const StudentTable = ({
 
                 return (
                   <TableRow
-                    key={student.id}
+                    key={student.user_id}
                     className={`cursor-pointer transition-colors ${
-                      selected.has(student.id)
+                      selected.has(student.user_id)
                         ? "bg-teal-50/60 dark:bg-teal-950/20"
                         : idx % 2 === 0
                           ? "bg-background hover:bg-muted/30"
                           : "bg-muted/20 hover:bg-muted/40"
                     }`}
-                    onClick={() => onSelectStudent(student.id)}
+                    onClick={() => onSelectStudent(student.user_id)}
                   >
                     <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
-                        checked={selected.has(student.id)}
-                        onCheckedChange={() => onToggleOne(student.id)}
+                        checked={selected.has(student.user_id)}
+                        onCheckedChange={() => onToggleOne(student.user_id)}
                       />
                     </TableCell>
                     <TableCell>
@@ -149,12 +149,11 @@ const StudentTable = ({
                         </Avatar>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{student.name}</p>
-                          <p className="text-xs text-muted-foreground">{student.course} · {student.yearLevel}</p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm tabular-nums">
-                      {student.examineeNo}
+                      {student.examinee_id_number}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{student.email}</TableCell>
                     <TableCell className="text-center text-sm tabular-nums">{student.examResults.length}</TableCell>
@@ -197,15 +196,15 @@ const StudentTable = ({
 
             return (
               <div
-                key={student.id}
+                key={student.user_id}
                 className="cursor-pointer p-3 active:bg-muted/30"
-                onClick={() => onSelectStudent(student.id)}
+                onClick={() => onSelectStudent(student.user_id)}
               >
                 <div className="flex items-start gap-3">
                   <div onClick={(e) => e.stopPropagation()} className="pt-1">
                     <Checkbox
-                      checked={selected.has(student.id)}
-                      onCheckedChange={() => onToggleOne(student.id)}
+                      checked={selected.has(student.user_id)}
+                      onCheckedChange={() => onToggleOne(student.user_id)}
                     />
                   </div>
 
@@ -217,7 +216,7 @@ const StudentTable = ({
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="truncate text-sm font-medium leading-5">{student.name}</p>
-                    <p className="break-all font-mono text-xs text-muted-foreground">{student.examineeNo}</p>
+                    <p className="break-all font-mono text-xs text-muted-foreground">{student.examinee_id_number}</p>
                     <p className="truncate text-xs text-muted-foreground">{student.email}</p>
 
                     <div className="flex items-center justify-between pt-1 text-xs">

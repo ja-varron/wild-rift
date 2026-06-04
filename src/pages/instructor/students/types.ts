@@ -6,7 +6,7 @@ export type TopicScore = {
 }
 
 export type ExamResult = {
-  id: number
+  id: string
   examTitle: string
   course: string
   date: string
@@ -18,15 +18,10 @@ export type ExamResult = {
 }
 
 export type Student = {
-  id: number
-  examineeNo: string
+  user_id: string
+  examinee_id_number: string
   name: string
   email: string
-  mobileNumber: string
-  role: string
-  course: string
-  yearLevel: string
-  dateAdded: string
   examResults: ExamResult[]
 }
 
