@@ -81,11 +81,13 @@ const useCreateScoreResults = () => {
         if (Object.keys(normalizedAnswers).length > 0) {
           const { error: paperError } = await supabase
             .from("exam_papers")
-            .insert({
+            .upsert({
               exam_id: payload.examId,
               student_id: profile.user_id,
               actual_answers: normalizedAnswers,
             })
+            .eq("exam_id", payload.examId)
+            .eq("student_id", profile.user_id)
 
           if (paperError) {
             console.error("Error saving exam paper:", paperError)
