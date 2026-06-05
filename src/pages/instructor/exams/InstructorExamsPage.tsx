@@ -60,7 +60,8 @@ const defaultFormData: ExamFormData = {
 }
 
 const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
-  const { exams, isLoading, refetch } = useFetchExams(userProfile?.course?.course_id ?? "")
+  // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+  const { exams, isLoading, refetch } = useFetchExams(userProfile?.course?.course_id!)
   const { mutateAsync: createExam, isPending: isCreatePending } = useCreateExam()
   const { mutateAsync: updateExam, isPending: isUpdatePending } = useUpdateExam()
   const { mutateAsync: saveFeedback } = useCreateFeedback()
@@ -267,8 +268,8 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
         toast.success("Examination updated successfully!")
       } else {
         await createExam({
-          course_id: userProfile?.course?.course_id || "",
-          created_by: userProfile?.user_id || "",
+          course_id: userProfile?.course?.course_id!,
+          created_by: userProfile?.user_id!,
           exam_title: form.title,
           exam_date: form.examDate,
           total_items: form.totalItems,
@@ -432,7 +433,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                       
                       {
                         label: "Topics",
-                        value: selectedExam.topics.length,
+                        value: selectedExam.topics?.length || 0,
                         icon: BookOpen,
                       },
                     ].map((stat) => (
@@ -475,7 +476,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
 
                     <TabsContent value="answer-key" className="mt-4">
                       <AnswerKeyEditor
-                        topics={selectedExam.topics}
+                        topics={selectedExam.topics || []}
                         totalItems={selectedExam.total_items}
                         keyVersions={
                           answerKeyVersions.length > 0 ? answerKeyVersions : undefined
