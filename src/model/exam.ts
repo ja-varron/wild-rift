@@ -1,92 +1,47 @@
-export class Exam {
-  private exam_id: string
-  private course_id: string
-  private exam_title: string
-  private exam_date: string
-  private total_items: number
-  private passing_rate: number
-  private topics: string[]
+import type { Feedback } from "./feedback";
 
-  constructor(
-    exam_id: string | Exam,
-    course_id?: string,
-    exam_title?: string,
-    exam_date?: string,
-    total_items?: number,
-    passing_rate?: number,
-    topics?: string[]
-  ) {
-    if (exam_id instanceof Exam) {
-      this.exam_id = exam_id.exam_id
-      this.course_id = exam_id.course_id
-      this.exam_title = exam_id.exam_title
-      this.exam_date = exam_id.exam_date
-      this.total_items = exam_id.total_items
-      this.passing_rate = exam_id.passing_rate
-      this.topics = exam_id.topics
-    } else {
-      this.exam_id = exam_id
-      this.course_id = course_id!
-      this.exam_title = exam_title!
-      this.exam_date = exam_date!
-      this.total_items = total_items!
-      this.passing_rate = passing_rate!
-      this.topics = topics || []
-    }
-  }
+type TopicScore = {
+  topic_id: number,
+  score: number,
+  percent: number,
+  max_score: number,
+  topic_name: string
+}
 
-  // Exam ID is read-only after creation
-  get getExamId() {
-    return this.exam_id
-  }
+export interface Exam {
+  exam_id?: string
+  course: { course_id: string; course_name: string } | null;
+  profile: { first_name: string; last_name: string } | null;
+  exam_title: string
+  exam_date: string
+  total_items: number
+  passing_rate: number
+  created_by: string
+  created_at: string
+  topics: string[]
+}
 
-  // Course ID is read-only after creation
-  get getCourseId() {
-    return this.course_id
-  }
+export interface ExamInsert {
+  course_id: string;
+  exam_title: string;
+  exam_date: string;
+  total_items: number;
+  passing_rate: number;
+  created_by: string;
+  topics: string[];
+}
 
-  // Exam title can be updated after creation
-  get getExamTitle() {
-    return this.exam_title
-  }
+export type ExamUpdate = Partial<ExamInsert>;
 
-  set setExamTitle(title: string) {
-    this.exam_title = title
+export interface ExamResult {
+  exam: Exam
+  score_result?: {
+    passed: boolean
+    total_score: number
+    topic_scores: TopicScore[]
+    scanned_at: string
+    score_percentage: number,
+    answer_key_version: string
   }
-
-  // Exam date can be updated after creation
-  get getExamDate() {
-    return this.exam_date
-  }
-
-  set setExamDate(date: string) {
-    this.exam_date = date
-  }
-
-  // Total items can be updated after creation
-  get getTotalItems() {
-    return this.total_items
-  }
-
-  set setTotalItems(items: number) {
-    this.total_items = items
-  }
-
-  // Passing rate can be updated after creation
-  get getPassingRate() {
-    return this.passing_rate
-  }
-
-  set setPassingRate(rate: number) {
-    this.passing_rate = rate
-  }
-
-  // Topics can be updated after creation
-  get getTopics() {
-    return this.topics
-  }
-
-  set setTopics(topics: string[]) {
-    this.topics = topics
-  }
+  feedbacks: Feedback[]
 }

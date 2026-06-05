@@ -3,14 +3,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { IconPlus } from "@tabler/icons-react"
+import { IconPlus, IconLoader2 } from "@tabler/icons-react"
 
 type AccountForm = {
   firstName: string
   middleName: string
   lastName: string
   email: string
+  password: string
   role: "Student" | "Instructor" | "Admin"
+  prcExamType: string
 }
 
 type CreateAccountDialogProps = {
@@ -19,9 +21,10 @@ type CreateAccountDialogProps = {
   editingId: string | null
   form: AccountForm
   setForm: (form: AccountForm) => void
-  courses: string[]
+  licensureExams: string[]
   handleSave: () => void
   openCreate: () => void
+  isSaving: boolean
 }
 
 const CreateAccountDialog = ({
@@ -30,9 +33,23 @@ const CreateAccountDialog = ({
   editingId,
   form,
   setForm,
+  licensureExams,
   handleSave,
   openCreate,
+  isSaving,
 }: CreateAccountDialogProps) => {
+  const examOptions =
+    form.prcExamType && !licensureExams.includes(form.prcExamType)
+      ? [form.prcExamType, ...licensureExams]
+      : licensureExams
+
+  const canSave =
+    !!form.firstName.trim() &&
+    !!form.lastName.trim() &&
+    !!form.email.trim() &&
+    !!form.prcExamType.trim() &&
+    (editingId ? true : true) // For new accounts, password is auto-generated, so always true
+
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
@@ -46,8 +63,8 @@ const CreateAccountDialog = ({
           <DialogTitle>{editingId ? "Edit Account" : "Create New Account"}</DialogTitle>
           <DialogDescription>
             {editingId
-              ? "Update the account details below."
-              : "Fill in the details to create a new student or instructor account."}
+              ? "Update the account details below. Password changes are disabled in the admin panel."
+              : "Fill in the details to create a new student or instructor account. A secure password will be generated automatically and sent via email."}
           </DialogDescription>
         </DialogHeader>
 
@@ -57,6 +74,7 @@ const CreateAccountDialog = ({
               <Label htmlFor="firstName">First Name *</Label>
               <Input
                 id="firstName"
+                disabled={isSaving}
                 value={form.firstName}
                 onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                 placeholder="Juan"
@@ -66,6 +84,7 @@ const CreateAccountDialog = ({
               <Label htmlFor="middleName">Middle Name</Label>
               <Input
                 id="middleName"
+                disabled={isSaving}
                 value={form.middleName}
                 onChange={(e) => setForm({ ...form, middleName: e.target.value })}
                 placeholder="A."
@@ -75,6 +94,7 @@ const CreateAccountDialog = ({
               <Label htmlFor="lastName">Last Name *</Label>
               <Input
                 id="lastName"
+                disabled={isSaving}
                 value={form.lastName}
                 onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                 placeholder="Dela Cruz"
@@ -87,11 +107,18 @@ const CreateAccountDialog = ({
             <Input
               id="email"
               type="email"
+              disabled={isSaving}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="juan.delacruz@vsu.edu.ph"
             />
           </div>
+
+          {editingId && (
+            <p className="text-xs text-muted-foreground">
+              Password changes are disabled for all accounts.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -99,6 +126,7 @@ const CreateAccountDialog = ({
               <Select
                 value={form.role}
                 onValueChange={(v) => setForm({ ...form, role: v as "Student" | "Instructor" })}
+                disabled={isSaving}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select role" />
@@ -109,31 +137,39 @@ const CreateAccountDialog = ({
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1.5">
-              <Label>Course</Label>
-              {/* <Select
-                value={form.course}
-                onValueChange={(v) => setForm({ ...form, course: v })}
+              <Label>PRC Licensure Exam *</Label>
+              <Select
+                value={form.prcExamType}
+                onValueChange={(v) => setForm({ ...form, prcExamType: v })}
+                disabled={isSaving || examOptions.length === 0}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select course" />
+                  <SelectValue placeholder="Select PRC exam" />
                 </SelectTrigger>
                 <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  {examOptions.length === 0 ? (
+                    <SelectItem value="__none" disabled>
+                      No exams available
+                    </SelectItem>
+                  ) : null}
+                  {examOptions.map((exam) => (
+                    <SelectItem key={exam} value={exam}>{exam}</SelectItem>
                   ))}
                 </SelectContent>
-              </Select> */}
+              </Select>
             </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogOpen(false)}>
+          <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
-            {editingId ? "Save Changes" : "Create Account"}
+          <Button onClick={handleSave} disabled={!canSave || isSaving}>
+            {isSaving && <IconLoader2 className="size-4 mr-2 animate-spin" />}
+            {isSaving ? "Saving..." : editingId ? "Save Changes" : "Create Account"}
           </Button>
         </DialogFooter>
       </DialogContent>

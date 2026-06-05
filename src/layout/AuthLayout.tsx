@@ -18,7 +18,6 @@ const routeLabels: Record<string, string> = {
   "/instructor/students": "Students",
   "/admin": "Dashboard",
   "/admin/accounts": "Accounts",
-  "/admin/courses": "Courses",
   "/profile": "Profile",
 }
 
