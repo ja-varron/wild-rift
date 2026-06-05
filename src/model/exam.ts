@@ -21,6 +21,18 @@ export interface Exam {
   topics: string[]
 }
 
+export interface ExamInsert {
+  course_id: string;
+  exam_title: string;
+  exam_date: string;
+  total_items: number;
+  passing_rate: number;
+  created_by: string;
+  topics: string[];
+}
+
+export type ExamUpdate = Partial<ExamInsert>;
+
 export interface ExamResult {
   exam: Exam
   score_result?: {

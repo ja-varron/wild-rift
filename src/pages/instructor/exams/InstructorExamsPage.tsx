@@ -60,8 +60,7 @@ const defaultFormData: ExamFormData = {
 }
 
 const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-  const { exams, isLoading, refetch } = useFetchExams(userProfile?.course?.course_id!)
+  const { exams, isLoading, refetch } = useFetchExams(userProfile?.course?.course_id ?? "")
   const { mutateAsync: createExam, isPending: isCreatePending } = useCreateExam()
   const { mutateAsync: updateExam, isPending: isUpdatePending } = useUpdateExam()
   const { mutateAsync: saveFeedback } = useCreateFeedback()
@@ -231,32 +230,32 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
   }
 
   // ADD / EDIT handlers
-  function handleOpenEdit(exam: Exam) {
-    setEditingExam(exam)
+  // function handleOpenEdit(exam: Exam) {
+  //   setEditingExam(exam)
     
-    // Convert formatted date back to YYYY-MM-DD for the HTML date input
-    const parsedDate = new Date(exam.exam_date)
-    const formattedDateForInput = !isNaN(parsedDate.getTime()) 
-      ? parsedDate.toISOString().split('T')[0] 
-      : ""
+  //   // Convert formatted date back to YYYY-MM-DD for the HTML date input
+  //   const parsedDate = new Date(exam.exam_date)
+  //   const formattedDateForInput = !isNaN(parsedDate.getTime()) 
+  //     ? parsedDate.toISOString().split('T')[0] 
+  //     : ""
 
-    setFormData({
-      title: exam.exam_title || "",
-      course: exam.course_id || "",
-      examDate: formattedDateForInput,
-      totalItems: exam.total_items || 100,
-      passingRate: exam.passing_rate || 75,
-      topics: exam.topics ? exam.topics.join(", ") : "",
-    })
-    setDialogOpen(true)
-  }
+  //   setFormData({
+  //     title: exam.exam_title || "",
+  //     course: exam.course?.course_name || "",
+  //     examDate: formattedDateForInput,
+  //     totalItems: exam.total_items || 100,
+  //     passingRate: exam.passing_rate || 75,
+  //     topics: exam.topics ? exam.topics.join(", ") : "",
+  //   })
+  //   setDialogOpen(true)
+  // }
 
   // ADD / EDIT handlers
   async function handleSaveExam(form: ExamFormData) {
     try {
       if (editingExam) {
         await updateExam({
-          exam_id: editingExam.exam_id,
+          exam_id: editingExam.exam_id || "",
           updates: {
             exam_title: form.title,
             exam_date: form.examDate,
@@ -267,11 +266,9 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
         })
         toast.success("Examination updated successfully!")
       } else {
-        
         await createExam({
-          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-          course_id: userProfile?.course?.course_id!,
-          created_by: userProfile?.user_id,
+          course_id: userProfile?.course?.course_id || "",
+          created_by: userProfile?.user_id || "",
           exam_title: form.title,
           exam_date: form.examDate,
           total_items: form.totalItems,
@@ -364,7 +361,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
 
     try {
       await saveFeedback({
-        exam_id: selectedExam.exam_id,
+        exam_id: selectedExam.exam_id || "",
         student_id: trimmedStudentId,
         comment: feedback,
         message_at: new Date().toISOString(),
@@ -485,7 +482,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                         }
                         initialKeys={answerKeys}
                         onSave={(keys, versions) => {
-                          void handleSaveAnswerKeys(selectedExam.exam_id, keys, versions)
+                          void handleSaveAnswerKeys(selectedExam.exam_id || "", keys, versions)
                         }}
                         onCancel={() => {}}
                       />
@@ -624,12 +621,12 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                           key={exam.exam_id}
                           exam={exam}
                           onSelect={() => {
-                            setSelectedExamID(exam.exam_id)
+                            setSelectedExamID(exam.exam_id || "")
                             resetResults()
                             setScannerExamineeId("")
                             setScannerKeyVersion("")
                             const nextParams = new URLSearchParams(searchParams)
-                            nextParams.set("examId", exam.exam_id)
+                            nextParams.set("examId", exam.exam_id || "")
                             setSearchParams(nextParams, { replace: true })
                           }}
                         />

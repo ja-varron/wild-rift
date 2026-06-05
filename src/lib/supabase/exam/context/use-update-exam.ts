@@ -1,4 +1,4 @@
-import type { Exam } from "@/model/exam";
+import type { ExamUpdate } from "@/model/exam";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../supabase";
 
@@ -6,7 +6,7 @@ export const useUpdateExam = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-      mutationFn: async ({ exam_id, updates }: { exam_id: string, updates: Partial<Exam> }) => {
+      mutationFn: async ({ exam_id, updates }: { exam_id: string, updates: ExamUpdate }) => {
         const { data, error } = await supabase
           .from('exams')
           .update(updates)

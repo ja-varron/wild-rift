@@ -66,7 +66,7 @@ const ExamCard = ({ exam, onSelect, onEdit, onDelete, isDeleting }: ExamCardProp
         variant="outline"
         size="sm"
         className="w-full transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-        onClick={() => onSelect(exam.exam_id)}
+        onClick={() => onSelect(exam.exam_id || "")}
       >
         View Details <ChevronRight className="ml-1 size-4" />
       </Button>

@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { KeyRound, Plus, X } from "lucide-react"
-import type { AnswerKeyItem } from "../types"
+import type { AnswerKeyItem, ExamTopic } from "../types"
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -247,7 +247,7 @@ export function AnswerKeyEditor({
                       Topic/Tag
                     </span>
                     <Select
-                      value={row.topic ?? ""}
+                      value={row.topic ? (row.topic as ExamTopic).topic_idx.toString() : ""}
                       onValueChange={(val) =>
                         updateRow(row.question_number, {
                           topic: val,

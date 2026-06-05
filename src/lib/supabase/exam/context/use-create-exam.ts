@@ -1,4 +1,4 @@
-import type { Exam } from "@/model/exam";
+import type { ExamInsert } from "@/model/exam";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../supabase";
 
@@ -6,7 +6,7 @@ export const useCreateExam = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newExam: Omit<Exam, 'exam_id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (newExam: ExamInsert) => {
       const { data, error } = await supabase
         .from('exams')
         .insert(newExam)
