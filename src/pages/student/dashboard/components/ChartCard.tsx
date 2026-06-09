@@ -11,7 +11,7 @@ interface ChartCardProps {
 
 const ChartCard = ({ children, cardTitle, cardDescription, contentClassName }: ChartCardProps) => {
   return (
-    <Card className="w-full">
+    <Card className="w-full bg-[#FFFFFF]">
       <CardHeader className="border-b pb-4">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base font-semibold">{cardTitle}</CardTitle>
