@@ -134,7 +134,7 @@ export function AnswerKeyEditor({
             <div
               key={v}
               className={`flex items-center rounded text-xs font-semibold transition-colors ${activeVersion === v
-                  ? "bg-teal-700 text-white"
+                  ? "bg-[#2DC653] text-white"
                   : "border border-input bg-background text-foreground"
                 }`}
             >
@@ -206,18 +206,18 @@ export function AnswerKeyEditor({
                     </span>
                     <div className="flex gap-1.5">
                       {ANSWER_OPTIONS.map((opt) => (
-                        <button
+                        <Button
                           key={opt}
                           onClick={() =>
                             updateRow(row.question_number, { correct_answer: opt })
                           }
                           className={`flex size-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors cursor-pointer ${row.correct_answer === opt
-                              ? "border-teal-700 bg-teal-700 text-white"
+                              ? "border-[#2DC653] bg-[#2DC653] text-white"
                               : "border-border bg-background text-foreground hover:bg-muted"
                             }`}
                         >
                           {opt}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </div>
