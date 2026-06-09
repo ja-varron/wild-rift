@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react"
+import { useMemo, useState, Fragment } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -13,15 +13,16 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Search, Users, ChevronDown, ChevronUp, MessageSquare } from "lucide-react"
-import type { ExamTopic, StudentResult } from "../types"
+import type { ExamTopic, Feedback, ScoreResult } from "../types"
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 interface StudentScoresTableProps {
-  results: StudentResult[]
+  results: ScoreResult[]
   topics: ExamTopic[]
   passingRate: number
-  onUpdateFeedback: (studentId: number, feedback: string) => void
+  feedbackEntries: Feedback[]
+  onUpdateFeedback: (studentId: string, feedback: string) => void
 }
 
 type SortColumn = "name" | "score"
@@ -43,33 +44,91 @@ function SortIcon({
   )
 }
 
+function getStudentName(result: ScoreResult) {
+  const firstName = result.student.first_name?.trim() || ""
+  const lastName = result.student.last_name?.trim() || ""
+  const name = [firstName, lastName].filter(Boolean).join(" ").trim()
+  return name || "Unknown"
+}
+
+function getScorePercent(result: ScoreResult) {
+  if (typeof result.scorePercent === "number" && Number.isFinite(result.scorePercent)) {
+    return Math.round(result.scorePercent)
+  }
+
+  if (
+    typeof result.totalScore === "number" &&
+    Number.isFinite(result.totalScore) &&
+    typeof result.totalItems === "number" &&
+    Number.isFinite(result.totalItems) &&
+    result.totalItems > 0
+  ) {
+    return Math.round((result.totalScore / result.totalItems) * 100)
+  }
+
+  return null
+}
+
+function getPassed(result: ScoreResult, passingRate: number) {
+  if (typeof result.passed === "boolean") return result.passed
+  const percent = getScorePercent(result)
+  return percent !== null && percent >= passingRate
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function StudentScoresTable({
   results,
   topics,
   passingRate,
+  feedbackEntries,
   onUpdateFeedback,
 }: StudentScoresTableProps) {
   const [search, setSearch] = useState("")
   const [sortBy, setSortBy] = useState<SortColumn>("score")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
-  const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [draftFeedback, setDraftFeedback] = useState<Record<number, string>>({})
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [draftFeedback, setDraftFeedback] = useState<Record<string, string>>({})
+
+  const feedbackByStudentId = useMemo(() => {
+    const map = new Map<string, Feedback>()
+    for (const entry of feedbackEntries) {
+      const studentId = entry.student?.student_id?.trim()
+      if (!studentId) continue
+      const existing = map.get(studentId)
+      if (!existing || entry.message_at > existing.message_at) {
+        map.set(studentId, entry)
+      }
+    }
+    return map
+  }, [feedbackEntries])
 
   const filtered = results
-    .filter(
-      (r) =>
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.studentId.toLowerCase().includes(search.toLowerCase()),
-    )
+    .filter((result) => {
+      const term = search.trim().toLowerCase()
+      if (!term) return true
+
+      const name = getStudentName(result).toLowerCase()
+      const examinee = result.student.examinee_id_number?.toLowerCase() || ""
+      const studentId = result.student.student_id?.toLowerCase() || ""
+      return (
+        name.includes(term) ||
+        examinee.includes(term) ||
+        studentId.includes(term)
+      )
+    })
     .sort((a, b) => {
       const mul = sortDir === "asc" ? 1 : -1
-      if (sortBy === "name") return mul * a.name.localeCompare(b.name)
-      return mul * (a.score - b.score)
+      if (sortBy === "name") {
+        return mul * getStudentName(a).localeCompare(getStudentName(b))
+      }
+
+      const aScore = getScorePercent(a) ?? -1
+      const bScore = getScorePercent(b) ?? -1
+      return mul * (aScore - bScore)
     })
 
-  const passedCount = results.filter((r) => r.passed).length
+  const passedCount = results.filter((r) => getPassed(r, passingRate)).length
 
   function toggleSort(col: SortColumn) {
     if (sortBy === col) {
@@ -162,49 +221,69 @@ export function StudentScoresTable({
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((r) => {
-                  const pct = Math.round((r.score / r.totalItems) * 100)
-                  const isExpanded = expandedId === r.id
+                filtered.map((res, index) => {
+                  const pct = getScorePercent(res)
+                  const rowKey =
+                    res.student.student_id ||
+                    res.student.examinee_id_number ||
+                    `${res.exam_id}-${index}`
+                  const isExpanded = expandedId === rowKey
+                  const studentId = res.student.student_id?.trim() || ""
+                  const feedbackKey = studentId || rowKey
+                  const savedFeedback = studentId
+                    ? feedbackByStudentId.get(studentId)?.comment
+                    : ""
+                  const totalScore =
+                    typeof res.totalScore === "number" && Number.isFinite(res.totalScore)
+                      ? res.totalScore
+                      : null
+                  const totalItems =
+                    typeof res.totalItems === "number" && Number.isFinite(res.totalItems)
+                      ? res.totalItems
+                      : null
+                  const isPassed = getPassed(res, passingRate)
                   return (
-                    <Fragment key={r.id}>
+                    <Fragment key={rowKey}>
                       <TableRow
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() =>
-                          setExpandedId(isExpanded ? null : r.id)
+                          setExpandedId(isExpanded ? null : rowKey)
                         }
                       >
                         <TableCell className="font-medium">
-                          {r.name}
+                          {getStudentName(res)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {r.studentId}
+                          {res.student.examinee_id_number}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {r.score}/{r.totalItems}
+                          {totalScore !== null && totalItems !== null
+                            ? `${totalScore}/${totalItems}`
+                            : "--"}
                         </TableCell>
                         <TableCell
                           className={`text-right font-semibold tabular-nums ${
-                            pct >= passingRate
+                            pct !== null && pct >= passingRate
                               ? "text-green-600"
                               : "text-red-500"
                           }`}
                         >
-                          {pct}%
+                          {pct !== null ? `${pct}%` : "--"}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge
-                            variant={r.passed ? "default" : "destructive"}
+                            variant={isPassed ? "default" : "destructive"}
                             className={
-                              r.passed
+                              isPassed
                                 ? "bg-green-500 hover:bg-green-500"
                                 : ""
                             }
                           >
-                            {r.passed ? "Passed" : "Failed"}
+                            {isPassed ? "Passed" : "Failed"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground text-sm hidden sm:table-cell">
-                          {r.scannedAt}
+                          {res.scanned_at || "--"}
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
@@ -218,17 +297,22 @@ export function StudentScoresTable({
                               Topic Breakdown
                             </p>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                              {r.topicScores.map((ts) => {
-                                const topic = topics.find(
-                                  (t) => t.id === ts.topicId,
-                                )
+                              {res.topicScores.map((ts, topicIndex) => {
+                                const topic =
+                                  ts.topic ||
+                                  topics.find(
+                                    (t) => t.topic_idx === ts.topic?.topic_idx,
+                                  )
                                 const tPct = Math.round(
-                                  (ts.score / ts.maxScore) * 100,
+                                  (ts.score / Math.max(1, ts.total)) * 100,
                                 )
                                 return (
-                                  <div key={ts.topicId} className="space-y-1">
+                                  <div
+                                    key={topic?.topic_idx ?? topicIndex}
+                                    className="space-y-1"
+                                  >
                                     <p className="text-xs text-muted-foreground truncate">
-                                      {topic?.name}
+                                      {topic?.name || `Topic ${topicIndex + 1}`}
                                     </p>
                                     <p
                                       className={`text-sm font-semibold ${
@@ -237,7 +321,7 @@ export function StudentScoresTable({
                                           : "text-red-500"
                                       }`}
                                     >
-                                      {ts.score}/{ts.maxScore} ({tPct}%)
+                                      {ts.score}/{ts.total} ({tPct}%)
                                     </p>
                                   </div>
                                 )
@@ -254,32 +338,32 @@ export function StudentScoresTable({
                                 placeholder="Write feedback for this student..."
                                 className="text-sm min-h-20 resize-none"
                                 value={
-                                  draftFeedback[r.id] !== undefined
-                                    ? draftFeedback[r.id]
-                                    : (r.feedback ?? "")
+                                  draftFeedback[feedbackKey] !== undefined
+                                    ? draftFeedback[feedbackKey]
+                                    : (savedFeedback ?? "")
                                 }
                                 onChange={(e) =>
                                   setDraftFeedback((prev) => ({
                                     ...prev,
-                                    [r.id]: e.target.value,
+                                    [feedbackKey]: e.target.value,
                                   }))
                                 }
                               />
                               <div className="flex items-center justify-between">
-                                {r.feedback && draftFeedback[r.id] === undefined && (
+                                {savedFeedback && draftFeedback[feedbackKey] === undefined && (
                                   <p className="text-xs text-muted-foreground italic">
                                     Feedback saved.
                                   </p>
                                 )}
                                 <div className="flex gap-2 ml-auto">
-                                  {draftFeedback[r.id] !== undefined && (
+                                  {draftFeedback[feedbackKey] !== undefined && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
                                       onClick={() =>
                                         setDraftFeedback((prev) => {
                                           const next = { ...prev }
-                                          delete next[r.id]
+                                          delete next[feedbackKey]
                                           return next
                                         })
                                       }
@@ -290,12 +374,15 @@ export function StudentScoresTable({
                                   <Button
                                     size="sm"
                                     className="bg-teal-700 hover:bg-teal-800"
-                                    disabled={draftFeedback[r.id] === undefined}
+                                    disabled={
+                                      !studentId ||
+                                      draftFeedback[feedbackKey] === undefined
+                                    }
                                     onClick={() => {
-                                      onUpdateFeedback(r.id, draftFeedback[r.id])
+                                      onUpdateFeedback(studentId, draftFeedback[feedbackKey])
                                       setDraftFeedback((prev) => {
                                         const next = { ...prev }
-                                        delete next[r.id]
+                                        delete next[feedbackKey]
                                         return next
                                       })
                                     }}

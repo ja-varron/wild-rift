@@ -105,7 +105,7 @@ const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | n
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1 bg-[#FFFFFF]">
       <main className="p-6 space-y-6 max-w-5xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
@@ -114,14 +114,14 @@ const AdminLicensureExamsPage = ({ userProfile }: { userProfile: UserProfile | n
               List of PRC licensure examinations offered by VSU Review Center.
             </p>
           </div>
-          <Button onClick={handleOpenCreate}>
+          <Button className="bg-[#2DC653] hover:bg-[#25a244] text-white" onClick={handleOpenCreate}>
             <Plus className="mr-2 size-4" />
             Add Exam
           </Button>
         </div>  
 
         {/* Courses */}
-        <Card>
+        <Card className="bg-[#F9F9F9]">
           <CardHeader className="border-b pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Offered Exams</CardTitle>

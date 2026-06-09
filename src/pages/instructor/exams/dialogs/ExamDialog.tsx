@@ -2,14 +2,15 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import type { Course } from "@/model/course"
 
 type ExamDialogProps = {
   createDialogOpen: boolean
   setCreateDialogOpen: (open: boolean) => void
   newTitle: string
   setNewTitle: (title: string) => void
-  newCourse: string
-  setNewCourse: (course: string) => void
+  newCourseId: string
+  setNewCourseId: (courseId: string) => void
   newDate: string
   setNewDate: (date: string) => void
   newTotalItems: string
@@ -19,9 +20,14 @@ type ExamDialogProps = {
   newTopics: string
   setNewTopics: (topics: string) => void
   handleCreateExam: () => void
+  onCancel?: () => void
+  courses?: Course[]
+  isSaving?: boolean
+  coursesLoading?: boolean
+  coursesError?: string | null
 }
 
-const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTitle, newCourse, setNewCourse, newDate, setNewDate, newTotalItems, setNewTotalItems, newPassingRate, setNewPassingRate, newTopics, setNewTopics, handleCreateExam }: ExamDialogProps) => {
+const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTitle, newCourseId, setNewCourseId, newDate, setNewDate, newTotalItems, setNewTotalItems, newPassingRate, setNewPassingRate, newTopics, setNewTopics, handleCreateExam, onCancel, courses, isSaving, coursesLoading, coursesError }: ExamDialogProps) => {
   return (
     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
       <DialogContent className="sm:max-w-lg">
@@ -46,12 +52,29 @@ const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTit
 
           <div className="grid gap-2">
             <Label htmlFor="exam-course">Course</Label>
-            <Input
+            <select
               id="exam-course"
-              placeholder="e.g., BSN - Nursing"
-              value={newCourse}
-              onChange={(e) => setNewCourse(e.target.value)}
-            />
+              className="rounded-md border bg-transparent px-3 py-2"
+              value={newCourseId}
+              onChange={(e) => setNewCourseId(e.target.value)}
+            >
+              {coursesLoading ? (
+                <option value="">Loading courses...</option>
+              ) : coursesError ? (
+                <option value="">Failed to load courses</option>
+              ) : courses && courses.length > 0 ? (
+                <>
+                  <option value="">Select a course</option>
+                  {courses.map((c) => (
+                    <option key={c.course_id} value={c.course_id}>
+                      {c.course_name}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value="">No courses found</option>
+              )}
+            </select>
           </div>
 
           <div className="grid gap-2">
@@ -103,22 +126,22 @@ const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTit
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => setCreateDialogOpen(false)}
+            onClick={() => {
+              setCreateDialogOpen(false)
+              onCancel?.()
+            }}
           >
             Cancel
           </Button>
           <Button
             className="bg-teal-700 hover:bg-teal-800"
-            onClick={handleCreateExam}
-            disabled={
-              !newTitle ||
-              !newCourse ||
-              !newDate ||
-              !newTotalItems ||
-              !newTopics
-            }
+            onClick={() => {
+              console.log('Create button clicked')
+              handleCreateExam()
+            }}
+            disabled={!newTitle || !newCourseId || isSaving}
           >
-            Create Exam
+            {isSaving ? "Creating..." : "Create Exam"}
           </Button>
         </DialogFooter>
       </DialogContent>

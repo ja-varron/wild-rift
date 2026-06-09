@@ -12,8 +12,8 @@ const PAGE_SIZE = 10
 
 function roleBadgeClass(role: string) {
   if (role === "Instructor")
-    return "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300"
-  return "bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-300"
+    return "bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]"
+  return "bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]"
 }
 
 type AccountTableProps = {
@@ -32,7 +32,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
   const paginated = users.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   return (
-    <Card>
+    <Card className="bg-[#FFFFFF]">
       <CardHeader className="border-b pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold">Accounts</CardTitle>

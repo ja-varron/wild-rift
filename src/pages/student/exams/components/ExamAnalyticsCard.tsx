@@ -17,17 +17,20 @@ interface FeedbackItem {
 }
 
 interface ExamRecord {
-  id: number
+  id: string | number
   title: string
   date: string
   instructor: string
   score: number
   totalItems: number
+  passingRate?: number
   passed: boolean
   attempted?: boolean
   topics: TopicScore[]
   feedback: FeedbackItem[]
   recommendation: string
+  scannedAt?: string | null
+  feedbackAt?: string | null
 }
 
 function scoreColor(score: number) {
@@ -124,9 +127,13 @@ const ExamAnalyticsCard = ({ exam }: { exam: ExamRecord }) => {
                 </div>
                 <Progress value={pct} className={`h-3 ${progressBarColor(pct)}`} />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Passing mark: 75%</span>
+                  <span>Passing mark: {exam.passingRate ?? 75}%</span>
                   <span className={!isAttempted ? "font-medium" : exam.passed ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
-                    {!isAttempted ? "Awaiting scan" : exam.passed ? `+${pct - 75}pts above passing` : `${75 - pct}pts below passing`}
+                    {!isAttempted
+                      ? "Awaiting scan"
+                      : exam.passed
+                        ? `+${pct - (exam.passingRate ?? 75)}pts above passing`
+                        : `${(exam.passingRate ?? 75) - pct}pts below passing`}
                   </span>
                 </div>
               </div>

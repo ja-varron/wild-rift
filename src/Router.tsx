@@ -8,9 +8,9 @@ import RequireRole from './components/RequireRole';
 import AuthLayout from './layout/AuthLayout';
 import StudentDashboardPage from './pages/student/dashboard/StudentDashboardPage';
 import StudentExamsPage from './pages/student/exams/StudentExamsPage';
-import StudentExamDetailsPage from './pages/student/exams/StudentExamDetailsPage';
 import InstructorDashboardPage from './pages/instructor/dashboard/InstructorDashboardPage';
 import InstructorExamsPage from './pages/instructor/exams/InstructorExamsPage';
+import InstructorExamScannerPage from './pages/instructor/exams/InstructorExamScannerPage';
 import InstructorListStudentPage from './pages/instructor/students/InstructorListStudentPage';
 import AdminDashboardPage from './pages/admin/dashboard/AdminDashboardPage';
 import AdminAccountsPage from './pages/admin/accounts/AdminAccountsPage';
@@ -105,9 +105,9 @@ function ConfiguredAppRouter() {
               )
           }
         >
-          <Route index element={<StudentDashboardPage />} />
-          <Route path="exams" element={<StudentExamsPage />} />
-          <Route path="exams/:id" element={<StudentExamDetailsPage />} />
+          <Route index element={<StudentDashboardPage userProfile={userProfile} />} />
+          <Route path="exams" element={<StudentExamsPage userProfile={userProfile} />} />
+          {/* <Route path="exams/:id" element={<StudentExamDetailsPage />} /> */}
         </Route>
 
         {/* Instructor Routes */}
@@ -124,8 +124,9 @@ function ConfiguredAppRouter() {
           }
         >
           <Route index element={<InstructorDashboardPage />} />
-          <Route path="exams" element={<InstructorExamsPage />} />
-          <Route path="students" element={<InstructorListStudentPage />} />
+          <Route path="exams" element={<InstructorExamsPage userProfile={userProfile} />} />
+          <Route path="exams/:examId/scanner" element={<InstructorExamScannerPage userProfile={userProfile} />} />
+          <Route path="students" element={<InstructorListStudentPage userProfile={userProfile} />} />
         </Route>
 
         {/* Admin Routes */}

@@ -12,10 +12,12 @@ const getProfile = async (user: AuthUser | null | undefined): Promise<UserProfil
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id"
+      "user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id, course_enrollment (course_id, courses (course_name))"
     )
     .eq('user_id', user.id)
     .maybeSingle()
+
+  
 
   // If there is no user profile, return null
   if (!data) {
@@ -27,6 +29,12 @@ const getProfile = async (user: AuthUser | null | undefined): Promise<UserProfil
     console.error("Error fetching user profile:", error);
   }
 
+  // Unpack array from Supabase if it's returning one-to-many
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const firstCourseItem: any = Array.isArray(data.course_enrollment) && data.course_enrollment.length > 0 
+      ? data.course_enrollment[0] 
+      : data.course_enrollment;
+
   // Map the data to a UserProfile object
   const userProfile: UserProfile = {
     user_id: data.user_id,
@@ -37,6 +45,10 @@ const getProfile = async (user: AuthUser | null | undefined): Promise<UserProfil
     role: data.role,
     institution_id: data.institution_id,
     examinee_id_number: data.examinee_id_number,
+    course: firstCourseItem ? {
+      course_id: firstCourseItem.course_id,
+      course_name: firstCourseItem.courses?.course_name || null
+    } : null
   }
 
   return userProfile
