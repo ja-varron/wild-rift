@@ -28,7 +28,7 @@ const CourseCard = ({
   const { roleCount, isLoading } = useCourseRoleCount(course.course_id)
 
   return (
-    <Card>
+    <Card className="bg-[#FFFFFF]">
       <CardHeader className="border-b pb-4">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1">

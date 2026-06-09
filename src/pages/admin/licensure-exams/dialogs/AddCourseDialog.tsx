@@ -76,7 +76,7 @@ const AddCourseDialog = ({ open, onOpenChange, initialData, onSave }: CourseDial
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave}>{isEditing ? "Save Changes" : "Add Examination"}</Button>
+          <Button className="bg-[#2DC653] hover:bg-[#25a244] text-white" onClick={handleSave}>{isEditing ? "Save Changes" : "Add Examination"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
