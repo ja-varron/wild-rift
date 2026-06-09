@@ -16,6 +16,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp"
 import { ArrowLeft, Mail, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react"
+import { evaluatePasswordPolicy, isPasswordPolicyValid, passwordPolicyItems, PASSWORD_MIN_LENGTH } from "@/lib/password-policy"
 
 type Step = "email" | "otp" | "reset" | "success"
 
@@ -26,6 +27,7 @@ const AccountVerificationPage = () => {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
+  const passwordChecks = passwordPolicyItems(evaluatePasswordPolicy(password))
 
   // ── Step handlers ──
 
@@ -54,8 +56,8 @@ const AccountVerificationPage = () => {
   function handleResetPassword(e: React.FormEvent) {
     e.preventDefault()
     setError("")
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.")
+    if (!isPasswordPolicyValid(evaluatePasswordPolicy(password))) {
+      setError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters and include uppercase, lowercase, number, and symbol.`)
       return
     }
     if (password !== confirmPassword) {
@@ -78,7 +80,7 @@ const AccountVerificationPage = () => {
   const currentIdx = stepOrder.indexOf(step)
 
   return (
-    <div className="bg-teal-50 dark:bg-background flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
+    <div className="bg-teal-50 dark:bg-background flex min-h-svh w-full flex-col items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm md:max-w-4xl">
         <div className={cn("flex flex-col gap-4")}>
           <Card className="overflow-hidden p-0 shadow-lg">
@@ -251,11 +253,19 @@ const AccountVerificationPage = () => {
                         <Input
                           id="new-password"
                           type="password"
-                          placeholder="At least 8 characters"
+                          placeholder="Use a strong password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
                         />
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {passwordChecks.map((item) => (
+                            <li key={item.label} className={cn("flex items-center gap-2", item.ok ? "text-emerald-600" : "text-muted-foreground")}>
+                              <span className={cn("size-1.5 rounded-full", item.ok ? "bg-emerald-600" : "bg-muted-foreground/40")} />
+                              {item.label}
+                            </li>
+                          ))}
+                        </ul>
                       </Field>
 
                       <Field>

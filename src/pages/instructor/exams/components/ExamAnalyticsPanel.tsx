@@ -70,7 +70,7 @@ export function ExamAnalyticsPanel({
   // Topic averages
   const topicAvgs = topics.map((topic) => {
     const topicScores = results
-      .map((r) => r.topicScores.find((ts) => ts.topicId === topic.id))
+      .map((r) => r.topicScores.find((ts) => ts.topicId === topic.topic_idx))
       .filter(Boolean)
     if (topicScores.length === 0) return { topic: topic.name, avg: 0 }
     const avg = Math.round(

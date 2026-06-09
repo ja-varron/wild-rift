@@ -19,40 +19,15 @@ import {
   Users,
 } from "lucide-react"
 import { DeleteConfirmationDialog } from "./dialogs/DeleteConfirmationDialog"
-import { User } from "@/model/user"
+import type { UserProfile } from "@/model/user-profile"
+import { adminSignUp } from "@/lib/supabase/authentication/auth"
+import { supabase } from "@/lib/supabase/supabase"
+import { toast } from "sonner"
+import { useFetchUsers } from "@/lib/supabase/authentication/context/use-fetch-users"
+import { useFetchCourses } from "@/lib/supabase/course/context/use-fetch-courses"
+import { generateRandomPassword } from "@/lib/password-generator"
+import { sendWelcomeEmail } from "@/lib/supabase/email/email"
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-// type Account = {
-//   id: number
-//   firstName: string
-//   middleName: string
-//   lastName: string
-//   email: string
-//   role: "Student" | "Instructor"
-//   course: string
-//   dateCreated: string
-// }
-
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-const courses = ["BSCS", "BSIT", "BSN", "BSEd", "BSA", "BSCE"]
-
-function generateAccounts(): User[] {
-  const data: User[] = [
-    new User("1", "Juan", "A.", "Dela Cruz", "juan.delacruz@vsu.edu.ph", "Student", "BSCS"),
-    new User("2", "Maria", "", "Santos", "maria.santos@vsu.edu.ph", "Student", "BSN"),
-    new User("3", "Carlos", "B.", "Reyes", "carlos.reyes@vsu.edu.ph", "Instructor", "BSCS"),
-    new User("4", "Ana", "C.", "Flores", "ana.flores@vsu.edu.ph", "Student", "BSIT"),
-    new User("5", "Mark", "", "Lim", "mark.lim@vsu.edu.ph", "Student", "BSCS"),
-    new User("6", "Grace", "D.", "Tan", "grace.tan@vsu.edu.ph", "Instructor", "BSN"),
-    new User("7", "Paulo", "", "Rivera", "paulo.rivera@vsu.edu.ph", "Student", "BSEd"),
-    new User("8", "Lisa", "E.", "Cruz", "lisa.cruz@vsu.edu.ph", "Student", "BSA"),
-    new User("9", "Ben", "", "Torres", "ben.torres@vsu.edu.ph", "Instructor", "BSIT"),
-    new User("10", "Alex", "F.", "Gomez", "alex.gomez@vsu.edu.ph", "Student", "BSCS"),
-  ]
-  return data
-}
 
 // ── Empty form state ───────────────────────────────────────────────────────────
 
@@ -61,14 +36,17 @@ const emptyForm = {
   middleName: "",
   lastName: "",
   email: "",
+  password: "",
   role: "Student" as "Student" | "Instructor" | "Admin",
-  course: "",
+  prcExamType: ""
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const AdminAccountsPage = () => {
-  const [accounts, setAccounts] = useState<User[]>(generateAccounts())
+const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const { users, isLoading, refetch } = useFetchUsers(userProfile?.institution_id!)
+  const { courses } = useFetchCourses(userProfile?.institution_id!)
+
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<"All" | "Student" | "Instructor">("All")
 
@@ -76,6 +54,7 @@ const AdminAccountsPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -83,20 +62,20 @@ const AdminAccountsPage = () => {
 
   // ── Filtering & pagination ──
   const filtered = useMemo(() => {
-    return accounts.filter((a) => {
-      const name = a.fullName.toLowerCase()
+    return users.filter((a) => {
+      const name = a.first_name.toLowerCase()
       const matchesSearch =
         name.includes(search.toLowerCase()) ||
-        a.getEmailAddress.toLowerCase().includes(search.toLowerCase()) ||
-        a.getExamReview.toLowerCase().includes(search.toLowerCase())
-      const matchesRole = roleFilter === "All" || a.getUserRole === roleFilter
+        a.email.toLowerCase().includes(search.toLowerCase())
+      const matchesRole = roleFilter === "All" || a.role === roleFilter
       return matchesSearch && matchesRole
     })
-  }, [accounts, search, roleFilter])
+  }, [users, search, roleFilter])
 
   // ── Counts ──
-  const studentCount = accounts.filter((a) => a.getUserRole === "Student").length
-  const instructorCount = accounts.filter((a) => a.getUserRole === "Instructor").length
+  const studentCount = users.filter((a) => a.role === "Student").length
+  const instructorCount = users.filter((a) => a.role === "Instructor").length
+
 
   // ── Handlers ──
   function openCreate() {
@@ -105,49 +84,96 @@ const AdminAccountsPage = () => {
     setDialogOpen(true)
   }
 
-  function openEdit(account: User) {
-    setEditingId(account.getUserId)
+  function openEdit(account: UserProfile) {
+    setEditingId(account.user_id!)
     setForm({
-      firstName: account.getFirstName,
-      middleName: account.getMiddleName ?? "",
-      lastName: account.getLastName,
-      email: account.getEmailAddress,
-      role: account.getUserRole ?? "Student",
-      course: account.getExamReview,
+      firstName: account.first_name,
+      middleName: account.middle_name ?? "",
+      lastName: account.last_name,
+      email: account.email,
+      password: "", // Password is not edited here, but required to satisfy the state type
+      role: account.role ?? "Student",
+      prcExamType: account.course?.course_name ?? "",
     })
     setDialogOpen(true)
   }
 
-  function handleSave() {
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return
-
-    if (editingId !== null) {
-      setAccounts((prev) =>
-        prev.map((a) => {
-          if (a.getUserId !== editingId) return a
-          // Create a new User with updated properties
-          const updated = new User(
-            a.getUserId,
-            form.firstName,
-            form.middleName,
-            form.lastName,
-            form.email,
-            form.role,
-            form.course
-          )
-          return updated
-        })
-      )
-    } else {
-      const newId = String(Math.max(...accounts.map((a) => parseInt(a.getUserId) || 0), 0) + 1)
-      // const today = new Date()
-      // const dateStr = today.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      const newUser = new User(newId, form.firstName, form.middleName, form.lastName, form.email, form.role, form.course)
-      setAccounts((prev) => [...prev, newUser])
+  async function handleSave() {
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
+      toast.error("Please fill in all required fields.")
+      return
     }
-    setDialogOpen(false)
-    setForm(emptyForm)
-    setEditingId(null)
+
+    setIsSaving(true)
+    try {
+      // Create user directly via the supabaseAdmin client (service role key).
+      // This skips email confirmation and does not affect the admin's own session.
+      const randomPassword = generateRandomPassword(8)
+
+      const { data, error } = await adminSignUp(
+        form.email,
+        randomPassword,
+        {
+          firstName: form.firstName,
+          middleName: form.middleName,
+          lastName: form.lastName,
+          role: form.role,
+        },
+      )
+
+      if (error || !data?.user) {
+        toast.error(`Failed to create account: ${error?.message ?? "Unknown error"}`)
+        return
+      }
+
+      const newUserId = data.user.id
+
+      // Insert the profile row for the newly created auth user.
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          user_id: newUserId,
+          first_name: form.firstName,
+          middle_name: form.middleName,
+          last_name: form.lastName,
+          email: form.email,
+          role: form.role,
+          institution_id: userProfile?.institution_id,
+        })
+
+      if (profileError) {
+        toast.error(`Failed to update profile: ${profileError.message}`)
+        return
+      }
+
+      // Enroll the user in the selected course
+      const selectedCourse = courses.find((c) => c.course_name === form.prcExamType)
+      if (selectedCourse) {
+        const { error: enrollmentError } = await supabase
+          .from("course_enrollment")
+          .insert({
+            user_id: newUserId,
+            course_id: selectedCourse.course_id,
+          })
+
+        if (enrollmentError) {
+          toast.error(`Failed to enroll user in course: ${enrollmentError.message}`)
+        }
+      }
+
+      // Send welcome email using the Edge Function2
+      sendWelcomeEmail(form.email, randomPassword)
+
+      refetch()
+      setDialogOpen(false)
+      setForm(emptyForm)
+      setEditingId(null)
+    } catch (err) {
+      toast.error("An unexpected error occurred.")
+      console.error(err)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   function openDelete(user_id: string) {
@@ -157,7 +183,7 @@ const AdminAccountsPage = () => {
 
   function handleDelete() {
     if (deletingId !== null) {
-      setAccounts((prev) => prev.filter((a) => a.getUserId !== deletingId))
+      // setAccounts((prev) => prev.filter((a) => a.getUserId !== deletingId))
       setDeleteDialogOpen(false)
       setDeletingId(null)
     }
@@ -183,7 +209,8 @@ const AdminAccountsPage = () => {
             editingId={editingId}
             form={form}
             setForm={setForm}
-            courses={courses}
+            licensureExams={courses.map((c) => c.course_name)}
+            isSaving={isSaving}
             handleSave={handleSave}
             openCreate={openCreate}
           />
@@ -193,7 +220,7 @@ const AdminAccountsPage = () => {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Users className="size-4" />
-            <span>{accounts.length} total</span>
+            <span>{users.length} total</span>
           </div>
           <Separator orientation="vertical" className="h-4" />
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -238,11 +265,15 @@ const AdminAccountsPage = () => {
         </Card>
 
         {/* ── Accounts Table ── */}
-        <AccountTable
-          users={filtered}
-          onEdit={openEdit}
-          onDelete={openDelete}
-        />
+        {isLoading ? (
+          <p>Loading accounts...</p>
+        ) : (
+          <AccountTable
+            users={filtered}
+            onEdit={openEdit}
+            onDelete={openDelete}
+          />
+        )}
 
         <DeleteConfirmationDialog handleDelete={handleDelete} open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} />
       </main>

@@ -31,7 +31,7 @@ const StudentDetailHeader = ({ student, onBack }: StudentDetailHeaderProps) => {
             <h1 className="text-2xl font-bold">{student.name}</h1>
           </div>
           <p className="text-muted-foreground text-sm mt-0.5">
-            {student.examineeNo} · {student.course} · {student.yearLevel}
+            {student.examinee_id_number}
           </p>
         </div>
       </div>

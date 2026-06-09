@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -9,18 +10,51 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { signIn } from "@/lib/supabase/authentication/auth"
+// import { supabase } from "@/lib/supabase/supabase"
+import { toast } from "sonner"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setErrorDetails(null)
+    try {
+      const { error, redirectTo } = await signIn(email.trim(), password)
+      if (error) {
+        const message = error.message ?? "Sign in failed"
+        setErrorDetails(message)
+        toast.error(message)
+        return
+      }
+      toast.success("Signed in successfully!")
+      navigate(redirectTo ?? "/student", { replace: true })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred during sign-in."
+      setErrorDetails(message)
+      toast.error("An unexpected error occurred during sign-in.")
+      console.error("Sign-in error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className={cn("flex flex-col gap-4", className)} {...props}>
       <Card className="overflow-hidden p-0 shadow-lg">
         <CardContent className="grid p-0 md:grid-cols-2">
 
           {/* ── Left: Form ── */}
-          <form className="p-8 md:p-10 flex flex-col justify-center">
+          <form onSubmit={handleSubmit} className="p-8 md:p-10 flex flex-col justify-center">
             <FieldGroup>
               {/* Logo + heading */}
               <div className="flex flex-col items-center gap-3 text-center mb-2">
@@ -43,6 +77,8 @@ export function LoginForm({
                   type="email"
                   placeholder="you@vsu.edu.ph"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </Field>
 
@@ -56,17 +92,43 @@ export function LoginForm({
                     Forgot password?
                   </Link>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </Field>
 
               <Field>
                 <Button
                   type="submit"
                   className="w-full bg-teal-700 hover:bg-teal-800 text-white"
+                  disabled={loading}
                 >
-                  Sign In
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </Field>
+
+              <p className="text-sm text-center text-muted-foreground">
+                No account yet?{" "}
+                <Link to="/account-request" className="text-teal-700 hover:text-teal-800 underline underline-offset-2">
+                  Request an account
+                </Link>
+              </p>
+
+              {errorDetails && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <p className="font-semibold">Login failed</p>
+                  <p className="mt-1 break-words">{errorDetails}</p>
+                  <ul className="mt-2 list-disc pl-5 text-xs text-red-700/90">
+                    <li>Check your email and password first.</li>
+                    <li>If the message starts with [Backend Auth], verify backend server is running and VITE_OMR_API_URL is correct.</li>
+                    <li>If the message starts with [Supabase Auth], verify Supabase credentials and user account status.</li>
+                  </ul>
+                </div>
+              )}
             </FieldGroup>
           </form>
 

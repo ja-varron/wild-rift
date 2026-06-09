@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react"
+import { useState } from "react"
+
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { Student, TopicScore, ExamResult } from "./types"
+import { useFetchStudentsByCourse } from "@/lib/supabase/authentication/context/use-fetch-users"
 import { getStudentAnalytics } from "./types"
 
 import StudentSummaryStats from "./components/StudentSummaryStats"
@@ -9,118 +10,32 @@ import StudentDetailHeader from "./components/StudentDetailHeader"
 import StudentInfoCards from "./components/StudentInfoCards"
 import StudentAnalyticsStats from "./components/StudentAnalyticsStats"
 import ExamAccordionList from "./components/ExamAccordionList"
+import type { UserProfile } from "@/model/user-profile"
 
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-const EXAM_TITLE = "Computer Science Licensure Examination"
-
-function generateStudents(): Student[] {
-  const names = [
-    "Juan Dela Cruz", "Maria Santos", "Carlos Reyes", "Ana Flores",
-    "Mark Lim", "Grace Tan", "Paulo Rivera", "Lisa Cruz",
-    "Ben Torres", "Alex Gomez", "Sarah Vargas", "Jhon Varron",
-    "Nicole Perez", "Ryan Diaz", "Carla Mendoza", "James Uy",
-    "Kate Villanueva", "Mike Bautista", "Rina Aguilar", "Dave Castillo",
-  ]
-  const roles = ["Student", "Instructor", "Student", "Student", "Instructor"]
-  const courses = ["BSCS", "BSIT", "BSCS", "BSIT", "BSCS"]
-  const years = ["4th Year", "4th Year", "3rd Year", "4th Year", "4th Year"]
-
-  const topics = [
-    { topicId: 1, topicName: "Data Structures & Algorithms" },
-    { topicId: 2, topicName: "Operating Systems" },
-    { topicId: 3, topicName: "Software Engineering" },
-    { topicId: 4, topicName: "Database Management" },
-  ]
-
-  return names.map((name, i) => {
-    const baseScore1 = 55 + ((i * 13 + 7) % 40)
-    const baseScore2 = 50 + ((i * 17 + 3) % 45)
-
-    const makeTopicScores = (base: number): TopicScore[] =>
-      topics.map((t, j) => ({
-        ...t,
-        score: Math.min(25, Math.max(8, Math.round(base / 4 + ((j * 3 + i * 2) % 8) - 4))),
-        maxScore: 25,
-      }))
-
-    const ts1 = makeTopicScores(baseScore1)
-    const total1 = ts1.reduce((s, t) => s + t.score, 0)
-    const ts2 = makeTopicScores(baseScore2)
-    const total2 = ts2.reduce((s, t) => s + t.score, 0)
-
-    const feedbacks = [
-      "Great improvement in algorithms. Focus more on OS concepts for the next exam.",
-      "Solid performance across all topics. Keep it up!",
-      "Struggling with database management. Consider reviewing normalization topics.",
-      "Good grasp of software engineering principles. Need to practice more coding problems.",
-      undefined,
-    ]
-
-    const examResults: ExamResult[] = [
-      {
-        id: i * 10 + 1,
-        examTitle: "CS Licensure Mock Exam 3",
-        course: "BSCS",
-        date: "Feb 15, 2026",
-        score: total1,
-        totalItems: 100,
-        passed: total1 >= 75,
-        topicScores: ts1,
-        feedback: feedbacks[i % feedbacks.length],
-      },
-      {
-        id: i * 10 + 2,
-        examTitle: "CS Licensure Mock Exam 2",
-        course: "BSCS",
-        date: "Jan 20, 2026",
-        score: total2,
-        totalItems: 100,
-        passed: total2 >= 75,
-        topicScores: ts2,
-        feedback: feedbacks[(i + 2) % feedbacks.length],
-      },
-    ]
-
-    return {
-      id: i + 1,
-      examineeNo: `CS-${String(100001 + i * 137).slice(0, 6)}`,
-      name,
-      email: `${name.split(" ")[0].toLowerCase()}.${name.split(" ").at(-1)!.toLowerCase()}@vsu.edu.ph`,
-      mobileNumber: `+63 9${String(10 + i).padStart(2, "0")} ${String(300 + i * 17).padStart(3, "0")} ${String(4000 + i * 53).padStart(4, "0")}`,
-      role: roles[i % roles.length],
-      course: courses[i % courses.length],
-      yearLevel: years[i % years.length],
-      dateAdded: `02-${String(1 + (i % 28)).padStart(2, "0")}-2026`,
-      examResults,
-    }
-  })
-}
-
-const allStudents = generateStudents().filter((s) => s.role === "Student")
 const PAGE_SIZE = 10
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const InstructorListStudentPage = () => {
+const InstructorListStudentPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [students] = useState<Student[]>(allStudents)
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
 
-  const selectedStudent = students.find((s) => s.id === selectedStudentId) ?? null
+  // Fetch students assigned to this instructor's course
+  // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+  const { students, isLoading } = useFetchStudentsByCourse(userProfile?.course?.course_id!) 
+
+  const selectedStudent = students.find((s) => s.user_id === selectedStudentId) ?? null
 
   // ── Filtering & pagination ──
-  const filtered = useMemo(
-    () =>
-      students.filter(
-        (s) =>
-          s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.email.toLowerCase().includes(search.toLowerCase()) ||
-          s.examineeNo.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [search, students],
+  const searchTerm = search.toLowerCase()
+  const filtered = students.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchTerm) ||
+      s.email.toLowerCase().includes(searchTerm) ||
+      s.examinee_id_number.toLowerCase().includes(searchTerm),
   )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -129,22 +44,22 @@ const InstructorListStudentPage = () => {
 
   // ── Selection helpers ──
   const allPageSelected =
-    pageItems.length > 0 && pageItems.every((s) => selected.has(s.id))
-  const somePageSelected = pageItems.some((s) => selected.has(s.id))
+    pageItems.length > 0 && pageItems.every((s) => selected.has(s.user_id))
+  const somePageSelected = pageItems.some((s) => selected.has(s.user_id))
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev)
       if (allPageSelected) {
-        pageItems.forEach((s) => next.delete(s.id))
+        pageItems.forEach((s) => next.delete(s.user_id))
       } else {
-        pageItems.forEach((s) => next.add(s.id))
+        pageItems.forEach((s) => next.add(s.user_id))
       }
       return next
     })
   }
 
-  function toggleOne(id: number) {
+  function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) { next.delete(id) } else { next.add(id) }
@@ -166,7 +81,7 @@ const InstructorListStudentPage = () => {
 
     return (
       <ScrollArea className="flex-1">
-        <main className="p-6 space-y-6 max-w-5xl mx-auto w-full">
+        <main className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
           <StudentDetailHeader
             student={selectedStudent}
             onBack={() => setSelectedStudentId(null)}
@@ -175,7 +90,7 @@ const InstructorListStudentPage = () => {
           {analytics && (
             <StudentAnalyticsStats
               analytics={analytics}
-              examCount={selectedStudent.examResults.length}
+              examCount={selectedStudent.examResults.filter((r) => r.attempted).length}
             />
           )}
           <ExamAccordionList results={selectedStudent.examResults} />
@@ -188,35 +103,49 @@ const InstructorListStudentPage = () => {
   // ── STUDENT LIST VIEW ──
   // ─────────────────────────────────────────────────────────────────────────────
 
+  if (isLoading) {
+    return (
+      <ScrollArea className="flex-1">
+        <main className="p-6 space-y-5 max-w-6xl mx-auto w-full">
+          <div className="flex items-center justify-center py-16">
+            <p className="text-muted-foreground">Loading students...</p>
+          </div>
+        </main>
+      </ScrollArea>
+    )
+  }
+
   return (
     <ScrollArea className="flex-1">
-      <main className="p-6 space-y-5 max-w-6xl mx-auto w-full">
-
+      <main className="p-4 sm:p-6 space-y-5 max-w-6xl mx-auto w-full">
         {/* Page title */}
         <div>
           <h1 className="text-2xl font-bold">Participants</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             {filtered.length} student{filtered.length !== 1 ? "s" : ""} enrolled
-            in {EXAM_TITLE}
+            in {userProfile?.course?.course_name}
           </p>
         </div>
 
-        <StudentSummaryStats students={students} />
+        {/* Page header */}
+        <>
+          <StudentSummaryStats students={students} />
 
-        <StudentTable
-          search={search}
-          onSearchChange={handleSearchChange}
-          pageItems={pageItems}
-          selected={selected}
-          allPageSelected={allPageSelected}
-          somePageSelected={somePageSelected}
-          onToggleAll={toggleAll}
-          onToggleOne={toggleOne}
-          onSelectStudent={(id) => setSelectedStudentId(id)}
-          page={safePage}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
+          <StudentTable
+            search={search}
+            onSearchChange={handleSearchChange}
+            pageItems={pageItems}
+            selected={selected}
+            allPageSelected={allPageSelected}
+            somePageSelected={somePageSelected}
+            onToggleAll={toggleAll}
+            onToggleOne={toggleOne}
+            onSelectStudent={(id) => setSelectedStudentId(id)}
+            page={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
 
       </main>
     </ScrollArea>
