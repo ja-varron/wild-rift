@@ -53,7 +53,7 @@ const CreateAccountDialog = ({
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5" onClick={openCreate}>
+        <Button size="sm" className="gap-1.5 bg-[#2DC653] hover:bg-[#25a244] text-white" onClick={openCreate}>
           <IconPlus className="size-4" />
           Create Account
         </Button>
@@ -167,7 +167,7 @@ const CreateAccountDialog = ({
           <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!canSave || isSaving}>
+          <Button onClick={handleSave} disabled={!canSave || isSaving} className="bg-[#2DC653] hover:bg-[#25a244] text-white">
             {isSaving && <IconLoader2 className="size-4 mr-2 animate-spin" />}
             {isSaving ? "Saving..." : editingId ? "Save Changes" : "Create Account"}
           </Button>

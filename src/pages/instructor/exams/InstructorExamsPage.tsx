@@ -381,7 +381,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
     <SidebarProvider>
       <TooltipProvider>
         <div className="flex min-h-screen w-full bg-background">
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 bg-[#FFFFFF]">
             <main className="p-6 space-y-6 max-w-6xl mx-auto w-full">
               {selectedExam ? (
                 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -448,8 +448,8 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                                 {stat.value}
                               </p>
                             </div>
-                            <div className="flex size-8 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950">
-                              <stat.icon className="size-4 text-teal-700" />
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-[#2DC653]/10 dark:bg-[#2DC653]/20">
+                              <stat.icon className="size-4 text-[#2DC653]" />
                             </div>
                           </div>
                         </CardContent>
@@ -534,7 +534,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                               The scanner opens in a dedicated page for camera-only capture.
                             </p>
                             <Button
-                              className="gap-1.5 bg-teal-700 hover:bg-teal-800"
+                              className="gap-1.5 bg-[#2DC653] hover:bg-[#25a244] text-white"
                               disabled={!scannerExamineeId.trim() || !effectiveScannerKeyVersion}
                               onClick={() => {
                                 if (!selectedExam) return
@@ -590,7 +590,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                       </p>
                     </div>
                     <Button
-                      className="gap-1.5 bg-teal-700 hover:bg-teal-800"
+                      className="gap-1.5 bg-[#2DC653] hover:bg-[#25a244] text-white"
                       onClick={handleOpenCreate}
                     >
                       <Plus className="size-4" />
@@ -608,7 +608,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                     <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
                       <p className="mb-4 text-gray-500">No exams created yet</p>
                       <Button
-                        className="gap-1.5 bg-blue-600 hover:bg-blue-700"
+                        className="gap-1.5 bg-[#2DC653] hover:bg-[#25a244] text-white"
                         onClick={handleOpenCreate}
                       >
                         <Plus className="size-4" />
