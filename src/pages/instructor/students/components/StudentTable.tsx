@@ -268,7 +268,7 @@ const StudentTable = ({
             key={p}
             variant={p === page ? "default" : "ghost"}
             size="sm"
-            className={`size-8 p-0 ${p === page ? "bg-teal-700 hover:bg-teal-800" : ""}`}
+            className={`size-8 p-0 ${p === page ? "bg-[#2DC653] hover:bg-[#25a244] text-white" : ""}`}
             onClick={() => onPageChange(p)}
           >
             {p}

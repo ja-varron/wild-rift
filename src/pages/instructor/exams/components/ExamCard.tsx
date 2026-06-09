@@ -22,7 +22,7 @@ const ExamCard = ({ exam, onSelect, onEdit, onDelete, isDeleting }: ExamCardProp
       })
 
   return (
-    <div className="rounded-lg border p-4 transition-colors hover:border-teal-300 dark:hover:border-teal-800">
+    <div className="rounded-lg border p-4 transition-colors hover:border-[#2DC653] dark:hover:border-[#2DC653]/50 bg-[#FFFFFF]">
       <div className="mb-3 flex items-start justify-between">
         <h3 className="text-lg font-semibold line-clamp-2">{exam.exam_title}</h3>
       </div>
@@ -65,7 +65,7 @@ const ExamCard = ({ exam, onSelect, onEdit, onDelete, isDeleting }: ExamCardProp
       <Button
         variant="outline"
         size="sm"
-        className="w-full transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+        className="w-full transition-colors hover:border-[#2DC653] hover:bg-[#2DC653]/10 hover:text-[#2DC653]"
         onClick={() => onSelect(exam.exam_id!)}
       >
         View Details <ChevronRight className="ml-1 size-4" />

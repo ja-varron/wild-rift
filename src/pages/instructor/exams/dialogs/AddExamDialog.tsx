@@ -127,7 +127,7 @@ const AddExamDialog = ({
             </Button>
             <Button
               type="submit"
-              className="bg-teal-700 hover:bg-teal-800"
+              className="bg-[#2DC653] hover:bg-[#25a244] text-white"
               disabled={
                 isSubmitting ||
                 !formData.title ||

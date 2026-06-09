@@ -190,7 +190,7 @@ const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | 
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1 bg-[#FFFFFF]">
       <main className="p-6 space-y-6 max-w-6xl mx-auto w-full">
 
         {/* Page title */}
@@ -235,7 +235,7 @@ const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | 
         </div>
 
         {/* ── Search & Filter bar ── */}
-        <Card>
+        <Card className="bg-[#FFFFFF]">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="relative flex-1">

@@ -77,8 +77,8 @@ const roles = [
     icon: UserCog,
     role: "Instructor",
     description: "Scan exam papers, review results, generate analytics, and provide personalized student feedback.",
-    color: "text-teal-600",
-    bg: "bg-teal-50 dark:bg-teal-950",
+    color: "text-[#2DC653]",
+    bg: "bg-[#2DC653]/10 dark:bg-[#2DC653]/20",
   },
   {
     icon: GraduationCap,
@@ -111,7 +111,7 @@ const LandingPage = () => {
             <Button variant="ghost" size="sm" asChild>
               <Link to="/login">Log in</Link>
             </Button>
-            <Button size="sm" className="bg-teal-700 hover:bg-teal-800 text-white" asChild>
+            <Button size="sm" className="bg-[#2DC653] hover:bg-[#25a244] text-white" asChild>
               <Link to="/login">Get Started <ArrowRight className="ml-1.5 size-3.5" /></Link>
             </Button>
           </div>
@@ -122,12 +122,12 @@ const LandingPage = () => {
       <section className="relative flex min-h-[calc(100svh-4rem)] w-full items-center overflow-hidden px-6 py-12 sm:py-16">
         {/* Background gradient blobs */}
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-teal-500/10 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-[300px] w-[400px] rounded-full bg-green-500/10 blur-3xl" />
+          <div className="absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[#2DC653]/10 blur-3xl" />
+          <div className="absolute bottom-0 right-0 h-[300px] w-[400px] rounded-full bg-[#2DC653]/10 blur-3xl" />
         </div>
 
         <div className="mx-auto max-w-4xl text-center">
-          <Badge className="mb-4 bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-900 dark:text-teal-300">
+          <Badge className="mb-4 bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]">
             VSU Review Center
           </Badge>
           <div className="mb-6 flex justify-center">
@@ -135,13 +135,13 @@ const LandingPage = () => {
           </div>
           <h1 className="mb-5 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
             Smarter Exam Checking <br className="hidden sm:block" />
-            <span className="text-teal-600">for Future Board Passers</span>
+            <span className="text-[#2DC653]">for Future Board Passers</span>
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-base text-muted-foreground sm:text-lg">
             Tuon automates mock board exam checking, delivers instant performance analytics, and provides personalized feedback — helping VSU Review Center students prepare with confidence.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Button size="lg" className="w-full bg-teal-700 hover:bg-teal-800 text-white sm:w-auto" asChild>
+            <Button size="lg" className="w-full bg-[#2DC653] hover:bg-[#25a244] text-white sm:w-auto" asChild>
               <Link to="/login">Get Started <ArrowRight className="ml-2 size-4" /></Link>
             </Button>
             <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
@@ -161,7 +161,7 @@ const LandingPage = () => {
             { value: "0", label: "Manual Errors" },
           ].map((s) => (
             <div key={s.label} className="flex flex-col items-center py-8 px-4 text-center">
-              <span className="text-3xl font-extrabold text-teal-600">{s.value}</span>
+              <span className="text-3xl font-extrabold text-[#2DC653]">{s.value}</span>
               <span className="mt-1 text-xs text-muted-foreground">{s.label}</span>
             </div>
           ))}
@@ -172,7 +172,7 @@ const LandingPage = () => {
       <section id="features" className="px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
-            <Badge className="mb-3 bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-900 dark:text-teal-300">Features</Badge>
+            <Badge className="mb-3 bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]">Features</Badge>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Everything you need, automated</h2>
             <p className="mt-3 text-muted-foreground">From scanning to feedback — Tuon handles every step of the examination evaluation process.</p>
           </div>
@@ -180,8 +180,8 @@ const LandingPage = () => {
             {features.map(({ icon: Icon, title, description }) => (
               <Card key={title} className="border hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900">
-                    <Icon className="size-5 text-teal-700 dark:text-teal-300" />
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-[#2DC653]/10 dark:bg-[#2DC653]/20">
+                    <Icon className="size-5 text-[#2DC653]" />
                   </div>
                   <h3 className="mb-2 font-semibold">{title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
@@ -198,14 +198,14 @@ const LandingPage = () => {
       <section id="how-it-works" className="px-6 py-20 sm:py-28 bg-muted/30">
         <div className="mx-auto max-w-4xl">
           <div className="mb-12 text-center">
-            <Badge className="mb-3 bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-900 dark:text-teal-300">Process</Badge>
+            <Badge className="mb-3 bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]">Process</Badge>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How It Works</h2>
             <p className="mt-3 text-muted-foreground">A simple, end-to-end automated workflow replacing manual checking entirely.</p>
           </div>
-          <ol className="relative space-y-8 border-l-2 border-teal-200 dark:border-teal-800 pl-8">
+          <ol className="relative space-y-8 border-l-2 border-[#2DC653]/30 dark:border-[#2DC653]/50 pl-8">
             {steps.map(({ step, title, description }) => (
               <li key={step} className="relative">
-                <span className="absolute -left-[2.85rem] flex h-9 w-9 items-center justify-center rounded-full border-2 border-teal-500 bg-background text-xs font-bold text-teal-600">
+                <span className="absolute -left-[2.85rem] flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#2DC653] bg-background text-xs font-bold text-[#2DC653]">
                   {step}
                 </span>
                 <h3 className="font-semibold">{title}</h3>
@@ -222,7 +222,7 @@ const LandingPage = () => {
       <section id="roles" className="px-6 py-20 sm:py-28">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <Badge className="mb-3 bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-900 dark:text-teal-300">Who It's For</Badge>
+            <Badge className="mb-3 bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]">Who It's For</Badge>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Built for every role</h2>
             <p className="mt-3 text-muted-foreground">Tuon provides a tailored experience for each user of the VSU Review Center.</p>
           </div>
@@ -243,11 +243,11 @@ const LandingPage = () => {
       </section>
 
       {/* ── CTA Banner ── */}
-      <section className="w-full bg-teal-700 px-6 py-16">
+      <section className="w-full bg-[#2DC653] px-6 py-16">
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <h2 className="mb-3 text-3xl font-bold text-white sm:text-4xl">Ready to get started?</h2>
-          <p className="mb-8 text-teal-100">Join the VSU Review Center's automated exam evaluation platform today.</p>
-          <Button size="lg" className="bg-white text-teal-700 hover:bg-teal-50 font-semibold" asChild>
+          <p className="mb-8 text-white/90">Join the VSU Review Center's automated exam evaluation platform today.</p>
+          <Button size="lg" className="bg-white text-[#2DC653] hover:bg-gray-100 font-semibold" asChild>
             <Link to="/login">Log In to Tuon <ArrowRight className="ml-2 size-4" /></Link>
           </Button>
         </div>

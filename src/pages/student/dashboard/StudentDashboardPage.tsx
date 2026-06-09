@@ -107,9 +107,9 @@ const StudentDashboardPage = ({ userProfile }: { userProfile: UserProfile | null
                 {welcomeMessage}
               </p>
             </div>
-            <Badge className="bg-teal-700 text-white hover:bg-teal-700">Progress Snapshot</Badge>
+            <Badge className="bg-[#2DC653] text-white hover:bg-[#2DC653]">Progress Snapshot</Badge>
           </div>
-          <p className="mt-4 text-sm text-teal-800/90">{topInsight}</p>
+          <p className="mt-4 text-sm text-[#2DC653]">{topInsight}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -131,7 +131,7 @@ const StudentDashboardPage = ({ userProfile }: { userProfile: UserProfile | null
             ) : (
               <ChartContainer config={lineChartConfig} className="h-48 w-full sm:h-60 lg:h-72">
                 <LineChart data={scoreTrend} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis
                     dataKey="exam"
                     tick={{ fontSize: 11 }}
@@ -146,13 +146,13 @@ const StudentDashboardPage = ({ userProfile }: { userProfile: UserProfile | null
                     axisLine={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                  <ReferenceLine y={75} label={{ value: "Passing", position: 'insideTopLeft', fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                  <ReferenceLine y={75} label={{ value: "Passing", position: 'insideTopLeft', fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} stroke="#E5E7EB" strokeDasharray="3 3" />
                   <Line
                     type="monotone"
                     dataKey="score"
-                    stroke="#0f766e"
+                    stroke="#2DC653"
                     strokeWidth={2.5}
-                    dot={{ r: 4, fill: "#0f766e", strokeWidth: 0 }}
+                    dot={{ r: 4, fill: "#2DC653", strokeWidth: 0 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
