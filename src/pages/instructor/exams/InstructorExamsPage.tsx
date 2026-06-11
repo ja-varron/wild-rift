@@ -40,6 +40,7 @@ import { useCreateFeedback } from "@/lib/supabase/feedback/context/use-create-fe
 import { useFetchFeedback } from "@/lib/supabase/feedback/context/use-fetch-feedback"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import { dateFormatter } from "@/utils/timestamp/timestamp"
 
 export type ExamFormData = {
   title: string
@@ -415,7 +416,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                         </h1>
                       </div>
                       <p className="text-muted-foreground text-sm mt-0.5">
-                        {selectedExam.course?.course_name} · {selectedExam.exam_date} ·{" "}
+                        {selectedExam.course?.course_name} · {dateFormatter(selectedExam.exam_date)} ·{" "}
                         {selectedExam.total_items} items ·{" "}
                         {selectedExam.passing_rate}% passing
                       </p>
