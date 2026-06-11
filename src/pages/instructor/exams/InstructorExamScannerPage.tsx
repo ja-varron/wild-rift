@@ -206,7 +206,7 @@ const InstructorExamScannerPage = ({
     const passed = scorePercent >= selectedExam.passing_rate
 
     void createScoreResults({
-      examId: selectedExam.exam_id,
+      examId: selectedExam.exam_id || "",
       examineeId: scanResult?.examineeId ?? paper.studentId,
       answers,
       scorePayload: {

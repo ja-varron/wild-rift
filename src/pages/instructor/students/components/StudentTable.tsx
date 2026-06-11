@@ -112,13 +112,14 @@ const StudentTable = ({
               </TableRow>
             ) : (
               pageItems.map((student, idx) => {
+                const attempted = student.examResults.filter((r) => r.attempted)
                 const avg =
-                  student.examResults.length > 0
+                  attempted.length > 0
                     ? Math.round(
-                        student.examResults.reduce(
+                        attempted.reduce(
                           (sum, r) => sum + Math.round((r.score / r.totalItems) * 100),
                           0,
-                        ) / student.examResults.length,
+                        ) / attempted.length,
                       )
                     : null
 
@@ -156,7 +157,7 @@ const StudentTable = ({
                       {student.examinee_id_number}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{student.email}</TableCell>
-                    <TableCell className="text-center text-sm tabular-nums">{student.examResults.length}</TableCell>
+                    <TableCell className="text-center text-sm tabular-nums">{attempted.length}</TableCell>
                     <TableCell className="text-right">
                       {avg !== null ? (
                         <span className={`font-semibold tabular-nums ${scoreColor(avg)}`}>
@@ -184,13 +185,14 @@ const StudentTable = ({
           </div>
         ) : (
           pageItems.map((student) => {
+            const attemptedMobile = student.examResults.filter((r) => r.attempted)
             const avg =
-              student.examResults.length > 0
+              attemptedMobile.length > 0
                 ? Math.round(
-                    student.examResults.reduce(
+                    attemptedMobile.reduce(
                       (sum, r) => sum + Math.round((r.score / r.totalItems) * 100),
                       0,
-                    ) / student.examResults.length,
+                    ) / attemptedMobile.length,
                   )
                 : null
 
@@ -220,7 +222,7 @@ const StudentTable = ({
                     <p className="truncate text-xs text-muted-foreground">{student.email}</p>
 
                     <div className="flex items-center justify-between pt-1 text-xs">
-                      <span className="text-muted-foreground">Exams: {student.examResults.length}</span>
+                      <span className="text-muted-foreground">Exams: {attemptedMobile.length}</span>
                       {avg !== null ? (
                         <span className={`font-semibold tabular-nums ${scoreColor(avg)}`}>{avg}%</span>
                       ) : (
@@ -266,7 +268,7 @@ const StudentTable = ({
             key={p}
             variant={p === page ? "default" : "ghost"}
             size="sm"
-            className={`size-8 p-0 ${p === page ? "bg-teal-700 hover:bg-teal-800" : ""}`}
+            className={`size-8 p-0 ${p === page ? "bg-[#2DC653] hover:bg-[#25a244] text-white" : ""}`}
             onClick={() => onPageChange(p)}
           >
             {p}

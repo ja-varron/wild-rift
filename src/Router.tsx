@@ -8,7 +8,6 @@ import RequireRole from './components/RequireRole';
 import AuthLayout from './layout/AuthLayout';
 import StudentDashboardPage from './pages/student/dashboard/StudentDashboardPage';
 import StudentExamsPage from './pages/student/exams/StudentExamsPage';
-import StudentExamDetailsPage from './pages/student/exams/StudentExamDetailsPage';
 import InstructorDashboardPage from './pages/instructor/dashboard/InstructorDashboardPage';
 import InstructorExamsPage from './pages/instructor/exams/InstructorExamsPage';
 import InstructorExamScannerPage from './pages/instructor/exams/InstructorExamScannerPage';
@@ -106,9 +105,9 @@ function ConfiguredAppRouter() {
               )
           }
         >
-          <Route index element={<StudentDashboardPage />} />
-          <Route path="exams" element={<StudentExamsPage />} />
-          <Route path="exams/:id" element={<StudentExamDetailsPage />} />
+          <Route index element={<StudentDashboardPage userProfile={userProfile} />} />
+          <Route path="exams" element={<StudentExamsPage userProfile={userProfile} />} />
+          {/* <Route path="exams/:id" element={<StudentExamDetailsPage />} /> */}
         </Route>
 
         {/* Instructor Routes */}

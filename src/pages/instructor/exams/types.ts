@@ -7,8 +7,8 @@ export interface AnswerKeyItem {
   key_version: string
   question_number: number
   correct_answer: "A" | "B" | "C" | "D" | "E"
-  points: number  
-  topic: ExamTopic | string // Added topic field to link each question to its topic
+  points: number
+  topic?: ExamTopic | string // Added topic field to link each question to its topic
 }
 
 export interface ScannedPaper {

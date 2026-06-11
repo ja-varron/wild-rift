@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase/supabase";
 import { useEffect } from "react";
 import type { Student } from "@/pages/instructor/students/types";
 
+// ── Shared payload types ───────────────────────────────────────────────────────
+
 type ScoreTopicPayload = {
   topicId?: number
   topicName?: string
@@ -19,31 +21,33 @@ type ScoreTopicPayload = {
 type ScorePayload = {
   totalScore?: number
   totalItems?: number
+  scorePercent?: number
   passed?: boolean
   topicScores?: ScoreTopicPayload[]
 }
 
+type ExamRow = {
+  exam_id: string
+  exam_title: string | null
+  exam_date: string | null
+  total_items: number | null
+  passing_rate: number | null
+  courses: { course_name: string | null } | { course_name: string | null }[] | null
+}
+
 type ScoreResultRow = {
-  score_result_id?: string | null
-  student_id?: string | null
-  scores?: unknown
-  scanned_at?: string | null
-  exams?: {
-    exam_id?: string | null
-    exam_title?: string | null
-    exam_date?: string | null
-    course_id?: string | null
-    courses?: {
-      course_name?: string | null
-    } | null
-  } | null
+  score_result_id: string | null
+  exam_id: string
+  student_id: string
+  scores: unknown
+  scanned_at: string | null
 }
 
 type FeedbackRow = {
-  exam_id?: string | null
-  student_id?: string | null
-  comment?: string | null
-  message_at?: string | null
+  exam_id: string
+  student_id: string
+  comment: string | null
+  message_at: string | null
 }
 
 function parseScorePayload(value: unknown): ScorePayload {
@@ -85,205 +89,211 @@ function normalizeTopicScores(raw: ScoreTopicPayload[] | undefined) {
         ? Number(entry.total)
         : 0
 
-    return {
-      topicId,
-      topicName,
-      score,
-      maxScore,
-    }
+    return { topicId, topicName, score, maxScore }
   })
 }
 
-// Helper function to fetch all students in a course
-const fetchStudentsByCourse = async(course_id: string): Promise<Student[]> => {
-  if (!course_id) {
-    throw new Error("Course ID is required to fetch students")
-  }
+// ── Exam-first fetch (mirrors use-fetch-exam-details.ts approach) ──────────────
+//
+// Pattern:
+//   1. Fetch students enrolled in the course via course_enrollment
+//   2. Fetch ALL exams for the course
+//   3. Fetch score_results for all student-exam pairs in batch
+//   4. Fetch feedbacks for all student-exam pairs in batch
+//   5. Compose Student[] where each student has ExamResult[] for EVERY exam
+//      (attempted=true only when a score_result or feedback exists)
+//
+const fetchStudentsByCourse = async (course_id: string): Promise<Student[]> => {
+  if (!course_id) throw new Error("Course ID is required to fetch students")
 
-  const { data, error } = await supabase
-    .from('profiles')
+  // 1. Enrolled students
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
     .select(`
       user_id, first_name, last_name, email, examinee_id_number,
-      course_enrollment!inner (
-        course_id
-      )
+      course_enrollment!inner(course_id)
     `)
-    .eq('role', 'Student')
-    .eq('course_enrollment.course_id', course_id)
+    .eq("role", "Student")
+    .eq("course_enrollment.course_id", course_id)
 
-  if (error) {
-    console.error("Error fetching students by course:", error);
-    throw new Error(error.message);
+  if (profileError) {
+    console.error("Error fetching students by course:", profileError)
+    throw new Error(profileError.message)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const students: Student[] = (data || []).map((student: any) => {
-    return {
-      user_id: student.user_id,
-      name: `${student.first_name} ${student.last_name}`,
-      email: student.email,
-      examinee_id_number: student.examinee_id_number,
-      examResults: []
-    }
-  })
+  const students: Student[] = (profileData ?? []).map((s: any) => ({
+    user_id: s.user_id,
+    name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
+    email: s.email,
+    examinee_id_number: s.examinee_id_number,
+    examResults: [],
+  }))
 
-  if (students.length === 0) {
+  if (students.length === 0) return students
+
+  const studentIds = students.map((s) => s.user_id)
+
+  // 2. All exams in this course
+  const { data: examData, error: examError } = await supabase
+    .from("exams")
+    .select("exam_id, exam_title, exam_date, total_items, passing_rate, courses(course_name)")
+    .eq("course_id", course_id)
+    .order("exam_date", { ascending: false })
+
+  if (examError) {
+    console.error("Error fetching exams for course:", examError)
     return students
   }
 
-  const studentIds = students.map((student) => student.user_id).filter(Boolean)
-  const { data: scoreRows, error: scoresError } = await supabase
+  const exams = (examData ?? []) as ExamRow[]
+  if (exams.length === 0) return students
+
+  const examIds = exams.map((e) => e.exam_id)
+
+  const rawCourseObj = exams[0]?.courses
+  const firstCourse = Array.isArray(rawCourseObj) ? rawCourseObj[0] : rawCourseObj
+  const courseName = firstCourse?.course_name ?? "Course"
+
+  // 3. Score results for all students across all exams (batch)
+  const { data: scoreData, error: scoreError } = await supabase
     .from("score_results")
-    .select(
-      `score_result_id, student_id, scores, scanned_at,
-       exams!inner (
-         exam_id, exam_title, exam_date, course_id,
-         courses (course_name)
-       )`
-    )
+    .select("score_result_id, exam_id, student_id, scores, scanned_at")
+    .in("exam_id", examIds)
     .in("student_id", studentIds)
-    .eq("exams.course_id", course_id)
     .order("scanned_at", { ascending: false })
 
-  if (scoresError) {
-    console.error("Error fetching score results:", scoresError)
-    return students
+  if (scoreError) {
+    console.error("Error fetching score results:", scoreError)
   }
 
-  const examIds = Array.from(
-    new Set(
-      (scoreRows || [])
-        .map((row) => {
-          const exam = Array.isArray(row.exams) ? row.exams[0] : row.exams
-          return exam?.exam_id ?? null
-        })
-        .filter((examId): examId is string => Boolean(examId))
-    ),
-  )
+  // 4. Feedbacks for all students across all exams (batch)
+  const { data: feedbackData, error: feedbackError } = await supabase
+    .from("feedbacks")
+    .select("exam_id, student_id, comment, message_at")
+    .in("exam_id", examIds)
+    .in("student_id", studentIds)
+    .order("message_at", { ascending: false })
 
-  const feedbackByKey = new Map<string, string>()
-  if (examIds.length > 0) {
-    const { data: feedbackRows, error: feedbackError } = await supabase
-      .from("feedbacks")
-      .select("exam_id, student_id, comment, message_at")
-      .in("exam_id", examIds)
-      .in("student_id", studentIds)
-      .order("message_at", { ascending: false })
+  if (feedbackError) {
+    console.error("Error fetching feedbacks:", feedbackError)
+  }
 
-    if (feedbackError) {
-      console.error("Error fetching feedback:", feedbackError)
-    } else {
-      for (const row of (feedbackRows || []) as FeedbackRow[]) {
-        const examId = row.exam_id ?? ""
-        const studentId = row.student_id ?? ""
-        if (!examId || !studentId) continue
-        const key = `${examId}-${studentId}`
-        if (!feedbackByKey.has(key) && row.comment?.trim()) {
-          feedbackByKey.set(key, row.comment.trim())
-        }
+  // Lookup maps: key = `${examId}-${studentId}` (latest row wins)
+  const scoreByKey = new Map<string, ScoreResultRow>()
+  for (const row of (scoreData ?? []) as ScoreResultRow[]) {
+    const key = `${row.exam_id}-${row.student_id}`
+    if (!scoreByKey.has(key)) scoreByKey.set(key, row)
+  }
+
+  const feedbackByKey = new Map<string, FeedbackRow>()
+  for (const row of (feedbackData ?? []) as FeedbackRow[]) {
+    const key = `${row.exam_id}-${row.student_id}`
+    if (!feedbackByKey.has(key)) feedbackByKey.set(key, row)
+  }
+
+  // 5. Compose Student[] — every student gets a result for every exam
+  return students.map((student) => {
+    const examResults: Student["examResults"] = exams.map((exam) => {
+      const key = `${exam.exam_id}-${student.user_id}`
+      const scoreRow = scoreByKey.get(key)
+      const feedbackRow = feedbackByKey.get(key)
+
+      const payload = parseScorePayload(scoreRow?.scores)
+      const totalItems = Math.max(1, Number(payload.totalItems ?? exam.total_items ?? 1) || 1)
+      const passingRate = Number(exam.passing_rate ?? 75) || 75
+
+      const derivedScore =
+        payload.scorePercent !== undefined && payload.scorePercent !== null
+          ? Math.round((Number(payload.scorePercent) / 100) * totalItems)
+          : 0
+      const score = Number(payload.totalScore ?? derivedScore) || 0
+
+      const feedbackComment =
+        typeof feedbackRow?.comment === "string" ? feedbackRow.comment.trim() : undefined
+
+      const attempted = Boolean(scoreRow) || Boolean(feedbackComment)
+
+      const pct =
+        payload.scorePercent !== undefined && payload.scorePercent !== null
+          ? Math.round(Number(payload.scorePercent))
+          : totalItems > 0
+            ? Math.round((score / totalItems) * 100)
+            : 0
+
+      const passed =
+        typeof payload.passed === "boolean"
+          ? payload.passed
+          : attempted
+            ? pct >= passingRate
+            : false
+
+      const topicScores = attempted ? normalizeTopicScores(payload.topicScores) : []
+
+      const rawDate = exam.exam_date ?? scoreRow?.scanned_at ?? new Date().toISOString()
+      const date = new Date(rawDate).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+
+      return {
+        id: scoreRow?.score_result_id ?? `${exam.exam_id}-${student.user_id}`,
+        examTitle: exam.exam_title ?? `Exam ${exam.exam_id}`,
+        course: courseName,
+        date,
+        score,
+        totalItems,
+        passingRate,
+        passed,
+        attempted,
+        topicScores,
+        feedback: feedbackComment,
       }
-    }
-  }
+    })
 
-  const examResultsByStudent = new Map<string, Student["examResults"]>()
-  for (const row of (scoreRows || []) as ScoreResultRow[]) {
-    const studentId = row.student_id ?? ""
-    if (!studentId) continue
-
-    const payload = parseScorePayload(row.scores)
-    const totalItems = Number(payload.totalItems)
-    const totalScore = Number(payload.totalScore)
-    const hasCheckedResult = Number.isFinite(totalItems) && totalItems > 0 && Number.isFinite(totalScore)
-    if (!hasCheckedResult) continue
-
-    const exam = Array.isArray(row.exams) ? row.exams[0] : row.exams
-    const examId = exam?.exam_id ?? ""
-    const examTitle =
-      (typeof exam?.exam_title === "string" && exam.exam_title.trim())
-        ? exam.exam_title
-        : exam?.exam_id
-          ? `Exam ${exam.exam_id}`
-          : "Exam"
-    const rawDate = exam?.exam_date || row.scanned_at
-    const date = rawDate
-      ? new Date(rawDate).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
-      : "—"
-    const course = exam?.courses?.course_name || "Course"
-    const passed = typeof payload.passed === "boolean"
-      ? payload.passed
-      : Math.round((totalScore / totalItems) * 100) >= 75
-
-    const topicScores = normalizeTopicScores(payload.topicScores)
-
-    const feedback = examId
-      ? feedbackByKey.get(`${examId}-${studentId}`)
-      : undefined
-
-    const result = {
-      id: row.score_result_id || `${exam?.exam_id ?? "exam"}-${studentId}`,
-      examTitle,
-      course,
-      date,
-      score: totalScore,
-      totalItems,
-      passed,
-      topicScores,
-      feedback,
-    }
-
-    const current = examResultsByStudent.get(studentId) ?? []
-    current.push(result)
-    examResultsByStudent.set(studentId, current)
-  }
-
-  return students.map((student) => ({
-    ...student,
-    examResults: examResultsByStudent.get(student.user_id) ?? [],
-  }))
-    
+    return { ...student, examResults }
+  })
 }
 
 
-// Helper function to fetch all users in an institution
-const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
+// ── fetchUsers: all users in an institution ────────────────────────────────────
+
+const fetchUsers = async (institution_id: string): Promise<UserProfile[]> => {
   if (!institution_id) {
     throw new Error("Institution ID is required to fetch users")
   }
 
-  // Fetch all users in an institution
   const { data, error } = await supabase
-    .from('profiles')
+    .from("profiles")
     .select(
-      `user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id,
+      `user_id, first_name, middle_name, last_name, email, role,      examinee_id_number, institution_id, created_at,
        course_enrollment(
          courses(course_id, course_name)
-       )`
+       )`,
     )
-    .eq('institution_id', institution_id)
-    .in('role', ['Student', 'Instructor'])
-    .order('created_at', { ascending: true })
-    
+    .eq("institution_id", institution_id)
+    .in("role", ["Student", "Instructor"])
+    .order("created_at", { ascending: true })
+
   if (error) {
-    console.error("Error fetching users:", error);
-    throw new Error(error.message);
+    console.error("Error fetching users:", error)
+    throw new Error(error.message)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userProfiles: UserProfile[] = (data || []).map((user: any) => {
-    // Unpack course from the nested array structure Supabase returns for many-to-many joins
-    const firstCourseItem = Array.isArray(user.course_enrollment) && user.course_enrollment.length > 0 
-      ? user.course_enrollment[0] 
-      : user.course_enrollment;
-    
-    // Safely extract the `courses` object
-    const courseObj = firstCourseItem?.courses ? {
-      course_id: firstCourseItem.courses.course_id,
-      course_name: firstCourseItem.courses.course_name
-    } : null;
+    const firstCourseItem =
+      Array.isArray(user.course_enrollment) && user.course_enrollment.length > 0
+        ? user.course_enrollment[0]
+        : user.course_enrollment
+
+    const courseObj = firstCourseItem?.courses
+      ? {
+          course_id: firstCourseItem.courses.course_id,
+          course_name: firstCourseItem.courses.course_name,
+        }
+      : null
 
     return {
       user_id: user.user_id,
@@ -294,80 +304,64 @@ const fetchUsers = async (institution_id: string) : Promise<UserProfile[]> => {
       role: user.role,
       institution_id: user.institution_id,
       examinee_id_number: user.examinee_id_number,
+      created_at: user.created_at,
       course: courseObj,
     }
   })
 
-  return userProfiles;
+  return userProfiles
 }
 
-// Custom hook to fetch all users in an institution
+// ── Custom hooks ───────────────────────────────────────────────────────────────
+
 const useFetchUsers = (institution_id: string) => {
   const queryClient = useQueryClient()
 
-  // A query to get all users
   const { data: users, isLoading, refetch } = useQuery({
-    queryKey: ['profiles', institution_id],
+    queryKey: ["profiles", institution_id],
     queryFn: () => fetchUsers(institution_id),
-    // We can set a reasonable stale time for the users data, since it may change (e.g. if an admin creates a new account)
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
-  // Set up a listener for auth state changes to invalidate the user profile query when the auth user changes (e.g. on sign-in or sign-out)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        // Only invalidate (refetch) when a user explicitly signs in or updates their user record
-        queryClient.invalidateQueries({ queryKey: ['profiles', institution_id] });
-      } 
-      
-      else if (event === "SIGNED_OUT") {
-        // Completely remove the cached profiles from memory for security
-        queryClient.removeQueries({ queryKey: ['profiles', institution_id] });
+        queryClient.invalidateQueries({ queryKey: ["profiles", institution_id] })
+      } else if (event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ["profiles", institution_id] })
       }
-    });
+    })
+    return () => { subscription.unsubscribe() }
+  }, [queryClient, institution_id])
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [queryClient, institution_id]);
-
-  return { users: users ?? [], isLoading, refetch };
+  return { users: users ?? [], isLoading, refetch }
 }
-
 
 const useFetchStudentsByCourse = (course_id: string) => {
   const queryClient = useQueryClient()
 
-  // A query to get all students
   const { data: students, isLoading, refetch } = useQuery({
-    queryKey: ['students', course_id],
+    queryKey: ["students", course_id],
     queryFn: () => fetchStudentsByCourse(course_id),
     enabled: !!course_id,
-    // We can set a reasonable stale time for the students data, since it may change (e.g. if an admin creates a new account)
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
-  // Set up a listener for auth state changes to invalidate the user profile query when the auth user changes (e.g. on sign-in or sign-out)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        // Only invalidate (refetch) when a user explicitly signs in or updates their user record
-        queryClient.invalidateQueries({ queryKey: ['students', course_id] });
-      } 
-      
-      else if (event === "SIGNED_OUT") {
-        // Completely remove the cached profiles from memory for security
-        queryClient.removeQueries({ queryKey: ['students', course_id] });
+        queryClient.invalidateQueries({ queryKey: ["students", course_id] })
+      } else if (event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ["students", course_id] })
       }
-    });
+    })
+    return () => { subscription.unsubscribe() }
+  }, [queryClient, course_id])
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [queryClient, course_id]);
-
-  return { students: students ?? [], isLoading, refetch };
+  return { students: students ?? [], isLoading, refetch }
 }
 
 export { useFetchUsers, useFetchStudentsByCourse }
+
+
+

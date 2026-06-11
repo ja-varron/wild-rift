@@ -50,7 +50,7 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-4", className)} {...props}>
-      <Card className="overflow-hidden p-0 shadow-lg">
+      <Card className="overflow-hidden p-0 shadow-lg bg-[#FFFFFF]">
         <CardContent className="grid p-0 md:grid-cols-2">
 
           {/* ── Left: Form ── */}
@@ -58,10 +58,6 @@ export function LoginForm({
             <FieldGroup>
               {/* Logo + heading */}
               <div className="flex flex-col items-center gap-3 text-center mb-2">
-                <div className="flex items-center gap-2">
-                  <img src="/logo.png" className="size-8" alt="Tuon logo" />
-                  <span className="text-xl font-bold tracking-tight">Tuon</span>
-                </div>
                 <div>
                   <h1 className="text-2xl font-bold">Welcome back</h1>
                   <p className="text-muted-foreground text-sm mt-1">
@@ -87,7 +83,7 @@ export function LoginForm({
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                   <Link
                     to="/forgot-password"
-                    className="ml-auto text-sm text-teal-700 hover:text-teal-800 underline-offset-2 hover:underline"
+                    className="ml-auto text-sm text-[#2DC653] hover:text-[#25a244] underline-offset-2 hover:underline"
                   >
                     Forgot password?
                   </Link>
@@ -104,7 +100,7 @@ export function LoginForm({
               <Field>
                 <Button
                   type="submit"
-                  className="w-full bg-teal-700 hover:bg-teal-800 text-white"
+                  className="w-full bg-[#2DC653] hover:bg-[#25a244] text-white"
                   disabled={loading}
                 >
                   {loading ? "Signing in..." : "Sign In"}
@@ -113,7 +109,7 @@ export function LoginForm({
 
               <p className="text-sm text-center text-muted-foreground">
                 No account yet?{" "}
-                <Link to="/account-request" className="text-teal-700 hover:text-teal-800 underline underline-offset-2">
+                <Link to="/account-request" className="text-[#2DC653] hover:text-[#25a244] underline underline-offset-2">
                   Request an account
                 </Link>
               </p>
@@ -133,30 +129,30 @@ export function LoginForm({
           </form>
 
           {/* ── Right: Brand panel ── */}
-          <div className="relative hidden md:flex flex-col items-center justify-center bg-teal-700 p-10 text-white">
+          <div className="relative hidden md:flex flex-col items-center justify-center bg-[#F9F9F9] p-10 text-foreground">
             {/* Decorative circles */}
-            <div className="absolute top-0 right-0 size-48 rounded-full bg-teal-600/40 -translate-y-1/3 translate-x-1/3" />
-            <div className="absolute bottom-0 left-0 size-64 rounded-full bg-teal-800/40 translate-y-1/3 -translate-x-1/3" />
+            <div className="absolute top-0 right-0 size-48 rounded-full bg-[#2DC653]/10 -translate-y-1/3 translate-x-1/3" />
+            <div className="absolute bottom-0 left-0 size-64 rounded-full bg-[#2DC653]/20 translate-y-1/3 -translate-x-1/3" />
 
             <div className="relative z-10 flex flex-col items-center gap-5 text-center">
-              <img src="/logo.png" alt="Tuon" className="size-16 brightness-0 invert" />
+              <img src="/logo.png" alt="Tuon" className="size-16" />
               <div>
                 <p className="text-3xl font-bold tracking-tight">Tuon</p>
-                <p className="text-teal-100 text-sm mt-1 max-w-xs">
+                <p className="text-muted-foreground text-sm mt-1 max-w-xs">
                   Automated exam scanning, grading, and analytics for modern educators.
                 </p>
               </div>
-              <div className="flex flex-col gap-2 text-sm text-teal-100 mt-2">
+              <div className="flex flex-col gap-2 text-sm text-muted-foreground mt-2">
                 <div className="flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-teal-300 shrink-0" />
+                  <span className="size-1.5 rounded-full bg-[#2DC653] shrink-0" />
                   OMR-based answer sheet scanning
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-teal-300 shrink-0" />
+                  <span className="size-1.5 rounded-full bg-[#2DC653] shrink-0" />
                   Instant automated grading
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-teal-300 shrink-0" />
+                  <span className="size-1.5 rounded-full bg-[#2DC653] shrink-0" />
                   Topic-based performance analytics
                 </div>
               </div>
@@ -168,9 +164,9 @@ export function LoginForm({
 
       <FieldDescription className="text-center text-xs">
         By signing in, you agree to our{" "}
-        <a href="#" className="text-teal-700 hover:underline underline-offset-2">Terms of Service</a>{" "}
+        <a href="#" className="text-[#2DC653] hover:underline underline-offset-2">Terms of Service</a>{" "}
         and{" "}
-        <a href="#" className="text-teal-700 hover:underline underline-offset-2">Privacy Policy</a>.
+        <a href="#" className="text-[#2DC653] hover:underline underline-offset-2">Privacy Policy</a>.
       </FieldDescription>
     </div>
   )

@@ -22,8 +22,8 @@ import type { UserProfile } from "@/model/user-profile"
 
 function roleBadge(role: string) {
   if (role === "Instructor")
-    return "bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300"
-  return "bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950 dark:text-teal-300"
+    return "bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]"
+  return "bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]"
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ const AdminDashboardPage = ({ userProfile }: { userProfile: UserProfile | null |
   }, [users])
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1 bg-[#FFFFFF]">
       <main className="p-6 space-y-6 max-w-6xl mx-auto w-full">
 
         {/* Page title */}
@@ -102,7 +102,7 @@ const AdminDashboardPage = ({ userProfile }: { userProfile: UserProfile | null |
         <div className="grid gap-6 lg:grid-cols-2">
 
           {/* System Information */}
-          <Card>
+          <Card className="bg-[#FFFFFF]">
             <CardHeader className="border-b pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">System Information</CardTitle>
@@ -128,14 +128,14 @@ const AdminDashboardPage = ({ userProfile }: { userProfile: UserProfile | null |
                 <Separator />
                 <div className="flex items-center justify-between px-5 py-3">
                   <span className="text-sm">System Status</span>
-                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:text-green-300">Active</Badge>
+                  <Badge className="bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]">Active</Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Recently Created Accounts */}
-          <Card>
+          <Card className="bg-[#FFFFFF]">
             <CardHeader className="border-b pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Recently Created Accounts</CardTitle>

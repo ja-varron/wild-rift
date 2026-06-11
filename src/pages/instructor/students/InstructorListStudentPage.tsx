@@ -90,7 +90,7 @@ const InstructorListStudentPage = ({ userProfile }: { userProfile: UserProfile |
           {analytics && (
             <StudentAnalyticsStats
               analytics={analytics}
-              examCount={selectedStudent.examResults.length}
+              examCount={selectedStudent.examResults.filter((r) => r.attempted).length}
             />
           )}
           <ExamAccordionList results={selectedStudent.examResults} />

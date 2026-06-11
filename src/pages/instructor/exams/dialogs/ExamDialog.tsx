@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Course } from "@/model/course"
+import type { Course } from "@/model/course"
 
 type ExamDialogProps = {
   createDialogOpen: boolean
@@ -66,8 +66,8 @@ const ExamDialog = ({ createDialogOpen, setCreateDialogOpen, newTitle, setNewTit
                 <>
                   <option value="">Select a course</option>
                   {courses.map((c) => (
-                    <option key={c.getCourseId} value={c.getCourseId}>
-                      {c.getCourseName}
+                    <option key={c.course_id} value={c.course_id}>
+                      {c.course_name}
                     </option>
                   ))}
                 </>
