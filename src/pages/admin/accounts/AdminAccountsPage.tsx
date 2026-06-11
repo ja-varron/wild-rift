@@ -27,6 +27,7 @@ import { useFetchUsers } from "@/lib/supabase/authentication/context/use-fetch-u
 import { useFetchCourses } from "@/lib/supabase/course/context/use-fetch-courses"
 import { generateRandomPassword } from "@/lib/password-generator"
 import { sendWelcomeEmail } from "@/lib/supabase/email/email"
+import { generateExamineeIDNumber } from "./utils/admin-accouts"
 
 
 // ── Empty form state ───────────────────────────────────────────────────────────
@@ -127,23 +128,45 @@ const AdminAccountsPage = ({ userProfile }: { userProfile: UserProfile | null | 
       }
 
       const newUserId = data.user.id
+      const newExamineeIdNumber = await generateExamineeIDNumber(userProfile)
 
-      // Insert the profile row for the newly created auth user.
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          user_id: newUserId,
-          first_name: form.firstName,
-          middle_name: form.middleName,
-          last_name: form.lastName,
-          email: form.email,
-          role: form.role,
-          institution_id: userProfile?.institution_id,
-        })
+      if (form.role === "Student") {
+        // Insert the profile row for the newly created auth user.
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: newUserId,
+            first_name: form.firstName,
+            middle_name: form.middleName,
+            last_name: form.lastName,
+            email: form.email,
+            role: form.role,
+            examinee_id_number: newExamineeIdNumber,
+            institution_id: userProfile?.institution_id,
+          })
 
-      if (profileError) {
-        toast.error(`Failed to update profile: ${profileError.message}`)
-        return
+        if (profileError) {
+          toast.error(`Failed to update profile: ${profileError.message}`)
+          return
+        }
+      } else if (form.role === "Instructor") {
+        // Insert the profile row for the newly created auth user.
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: newUserId,
+            first_name: form.firstName,
+            middle_name: form.middleName,
+            last_name: form.lastName,
+            email: form.email,
+            role: form.role,
+            institution_id: userProfile?.institution_id,
+          })
+
+        if (profileError) {
+          toast.error(`Failed to update profile: ${profileError.message}`)
+          return
+        }
       }
 
       // Enroll the user in the selected course
