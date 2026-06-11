@@ -267,7 +267,7 @@ const fetchUsers = async (institution_id: string): Promise<UserProfile[]> => {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      `user_id, first_name, middle_name, last_name, email, role, examinee_id_number, institution_id,
+      `user_id, first_name, middle_name, last_name, email, role,      examinee_id_number, institution_id, created_at,
        course_enrollment(
          courses(course_id, course_name)
        )`,
@@ -304,6 +304,7 @@ const fetchUsers = async (institution_id: string): Promise<UserProfile[]> => {
       role: user.role,
       institution_id: user.institution_id,
       examinee_id_number: user.examinee_id_number,
+      created_at: user.created_at,
       course: courseObj,
     }
   })
