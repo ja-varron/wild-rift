@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table"
 import { Search, Users, ChevronDown, ChevronUp, MessageSquare } from "lucide-react"
 import type { ExamTopic, Feedback, ScoreResult } from "../types"
+import { dateTimeFormatter } from "@/utils/timestamp/timestamp"
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ export function StudentScoresTable({
                     Student <SortIcon col="name" sortBy={sortBy} sortDir={sortDir} />
                   </span>
                 </TableHead>
-                <TableHead>Student ID</TableHead>
+                <TableHead>Examinee ID Number</TableHead>
                 <TableHead
                   className="cursor-pointer select-none text-right"
                   onClick={() => toggleSort("score")}
@@ -283,7 +284,7 @@ export function StudentScoresTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground text-sm hidden sm:table-cell">
-                          {res.scanned_at || "--"}
+                          {dateTimeFormatter(res.scanned_at) || "--"}
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
