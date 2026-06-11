@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react"
 import type { UserProfile } from "@/model/user-profile"
+import { dateFormatter } from "@/utils/timestamp/timestamp"
 
 const PAGE_SIZE = 10
 
@@ -62,7 +63,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                       <span className="font-medium text-foreground">Course:</span> {account.course?.course_name ?? "Not set"}
                     </p>
                     <p className="text-muted-foreground">
-                      <span className="font-medium text-foreground">Date Created:</span> {account.created_at}
+                      <span className="font-medium text-foreground">Date Created:</span> {dateFormatter(account.created_at!)}
                     </p>
                   </div>
 
@@ -124,8 +125,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                     <TableCell className="text-muted-foreground text-sm">
                       {account.course?.course_name ?? "Not set"}
                     </TableCell>
-                    {/* <TableCell>{account.getExamReview || "—"}</TableCell> */}
-                    <TableCell className="text-muted-foreground">{account.created_at}</TableCell>
+                    <TableCell className="text-muted-foreground">{dateFormatter(account.created_at!)}</TableCell>
                     <TableCell className="text-right pr-5">
                       <div className="flex items-center justify-end gap-1">
                         <Button
