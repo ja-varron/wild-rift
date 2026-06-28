@@ -10,19 +10,15 @@ import type { UserProfile } from "@/model/user-profile"
 
 const PAGE_SIZE = 10
 
+const users: UserProfile[] = []
+
 function roleBadgeClass(role: string) {
   if (role === "Instructor")
     return "bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]"
   return "bg-[#2DC653]/10 text-[#2DC653] hover:bg-[#2DC653]/20 dark:bg-[#2DC653]/20 dark:text-[#2DC653]"
 }
 
-type AccountTableProps = {
-  users: UserProfile[]
-  onEdit: (account: UserProfile) => void
-  onDelete: (userId: string) => void
-}
-
-const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
+const AccountTable = () => {
   const [page, setPage] = useState(1)
   const isMobile = useIsMobile()
 
@@ -71,7 +67,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                       variant="outline"
                       size="sm"
                       className="gap-1.5"
-                      onClick={() => onEdit(account)}
+                      // onClick={() => onEdit(account)}
                     >
                       <Pencil className="size-3.5" />
                       Edit
@@ -80,7 +76,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-destructive hover:text-destructive"
-                      onClick={() => onDelete(account.user_id!)}
+                      // onClick={() => onDelete(account.user_id!)}
                     >
                       <Trash2 className="size-3.5" />
                       Delete
@@ -132,7 +128,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                           variant="ghost"
                           size="icon"
                           className="size-8"
-                          onClick={() => onEdit(account)}
+                          // onClick={() => onEdit(account)}
                         >
                           <Pencil className="size-3.5" />
                         </Button>
@@ -140,7 +136,7 @@ const AccountTable = ({ users, onEdit, onDelete }: AccountTableProps) => {
                           variant="ghost"
                           size="icon"
                           className="size-8 text-destructive hover:text-destructive"
-                          onClick={() => onDelete(account.user_id!)}
+                          // onClick={() => onDelete(account.user_id!)}
                         >
                           <Trash2 className="size-3.5" />
                         </Button>

@@ -12,7 +12,6 @@ type AccountForm = {
   email: string
   password: string
   role: "Student" | "Instructor" | "Admin"
-  prcExamType: string
 }
 
 type CreateAccountDialogProps = {
@@ -33,21 +32,14 @@ const CreateAccountDialog = ({
   editingId,
   form,
   setForm,
-  licensureExams,
   handleSave,
   openCreate,
   isSaving,
 }: CreateAccountDialogProps) => {
-  const examOptions =
-    form.prcExamType && !licensureExams.includes(form.prcExamType)
-      ? [form.prcExamType, ...licensureExams]
-      : licensureExams
-
   const canSave =
     !!form.firstName.trim() &&
     !!form.lastName.trim() &&
     !!form.email.trim() &&
-    !!form.prcExamType.trim() &&
     (editingId ? true : true) // For new accounts, password is auto-generated, so always true
 
   return (
@@ -134,29 +126,6 @@ const CreateAccountDialog = ({
                 <SelectContent>
                   <SelectItem value="Student">Student</SelectItem>
                   <SelectItem value="Instructor">Instructor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>PRC Licensure Exam *</Label>
-              <Select
-                value={form.prcExamType}
-                onValueChange={(v) => setForm({ ...form, prcExamType: v })}
-                disabled={isSaving || examOptions.length === 0}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select PRC exam" />
-                </SelectTrigger>
-                <SelectContent>
-                  {examOptions.length === 0 ? (
-                    <SelectItem value="__none" disabled>
-                      No exams available
-                    </SelectItem>
-                  ) : null}
-                  {examOptions.map((exam) => (
-                    <SelectItem key={exam} value={exam}>{exam}</SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
