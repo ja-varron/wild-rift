@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { Plus, ArrowLeft, AlertCircle, KeyRound, ScanLine, Users, BarChart3, BookOpen, ClipboardList } from "lucide-react"
+import { Plus, ArrowLeft, AlertCircle, KeyRound, ScanLine, Users, BarChart3, BookOpen, ClipboardList, CheckCircle2, X } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -74,6 +74,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
   const [studentResults, setStudentResults] = useState<StudentResult[]>([])
   const [scannerExamineeId, setScannerExamineeId] = useState("")
   const [scannerKeyVersion, setScannerKeyVersion] = useState("")
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const nextResultIdRef = useRef(1)
   const examIdParam = searchParams.get("examId")
   const activeExamId = selectedExamID || examIdParam || null
@@ -277,6 +278,7 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
           topics: form.topics.split(",").map((t) => t.trim()),
         })
         toast.success("Examination created successfully!")
+        setSuccessMessage(`"${form.title}" has been created successfully.`)
       }
       await refetch()
       closeExamDialog()
@@ -291,6 +293,13 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
     setEditingExam(null)
     setFormData(defaultFormData)
   }
+
+  // Auto-dismiss the success alert after 4 seconds
+  useEffect(() => {
+    if (!successMessage) return
+    const timer = setTimeout(() => setSuccessMessage(null), 4000)
+    return () => clearTimeout(timer)
+  }, [successMessage])
 
   const keyVersionOptions = useMemo(
     () => (answerKeyVersions.length > 0 ? answerKeyVersions : ["A", "B"]),
@@ -597,6 +606,23 @@ const InstructorExamsPage = ({ userProfile }: { userProfile: UserProfile | null 
                       Create Exam
                     </Button>
                   </div>
+
+                  {/* Success alert after exam creation */}
+                  {successMessage && (
+                    <Alert className="border-[#2DC653]/40 bg-[#2DC653]/10 text-[#1a7a35] dark:text-[#2DC653]">
+                      <CheckCircle2 className="size-4 text-[#2DC653]" />
+                      <AlertDescription className="flex items-center justify-between gap-2">
+                        <span>{successMessage}</span>
+                        <button
+                          onClick={() => setSuccessMessage(null)}
+                          className="shrink-0 rounded p-0.5 hover:bg-[#2DC653]/20 transition-colors"
+                          aria-label="Dismiss"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   {isLoading ? (
                     <div className="space-y-3">

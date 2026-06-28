@@ -178,7 +178,7 @@ export function ScannerPanel({
     () => [...localPapers, ...scannedPapers],
     [localPapers, scannedPapers],
   )
-  const isDuplicateExaminee = useMemo(() => {
+  const isRescan = useMemo(() => {
     const trimmed = examineeId.trim().toLowerCase()
     if (!trimmed) return false
     return allPapers.some(
@@ -186,8 +186,8 @@ export function ScannerPanel({
     )
   }, [allPapers, examineeId])
   const isCaptureDisabled = useMemo(() => {
-    return !examineeId.trim() || isDuplicateExaminee
-  }, [examineeId, isDuplicateExaminee])
+    return !examineeId.trim()
+  }, [examineeId])
 
   const cameraContainerClass = fullScreenCamera
     ? "relative w-full h-[100svh] bg-black"
@@ -333,7 +333,19 @@ export function ScannerPanel({
       status: "Processing",
     }
 
-    setLocalPapers((prev) => [processingPaper, ...prev])
+    setLocalPapers((prev) => {
+      const exists = prev.some(
+        (p) => p.studentId.trim().toLowerCase() === trimmedExamineeId.toLowerCase(),
+      )
+      if (exists) {
+        return prev.map((p) =>
+          p.studentId.trim().toLowerCase() === trimmedExamineeId.toLowerCase()
+            ? processingPaper
+            : p,
+        )
+      }
+      return [processingPaper, ...prev]
+    })
 
     try {
       const canvasBlob = await new Promise<Blob>((resolve, reject) => {
@@ -383,7 +395,7 @@ export function ScannerPanel({
         status: "Graded",
       }
 
-      setLocalPapers((prev) => prev.map((p) => (p.id === newId ? gradedPaper : p)))
+      setLocalPapers((prev) => prev.map((p) => (p.id === newId || p.studentId.trim().toLowerCase() === trimmedExamineeId.toLowerCase() ? gradedPaper : p)))
       onCapture?.(gradedPaper, {
         resultId: String(payload?.result_id ?? payload?.resultId ?? newId),
         studentId: payload?.student_id ?? payload?.studentId ?? trimmedExamineeId,
@@ -583,9 +595,9 @@ export function ScannerPanel({
                     Checking examinee ID...
                   </p>
                 )}
-                {isDuplicateExaminee && (
+                {isRescan && (
                   <p className="text-xs text-amber-600">
-                    This examinee ID was already scanned.
+                    Already scanned — capturing will update the existing record.
                   </p>
                 )}
                 {examineeNotFound && (

@@ -284,7 +284,7 @@ export function AnswerKeyEditor({
           Cancel
         </Button>
         <Button
-          className="bg-teal-700 hover:bg-teal-800"
+          className="bg-[#2DC653] hover:bg-[#2DC653]/90"
           onClick={() => {
             const payload = versions.flatMap((version) =>
               buildRowsForVersion(version),
