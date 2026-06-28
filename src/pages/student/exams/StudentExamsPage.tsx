@@ -13,12 +13,10 @@ import {
   Target,
   BookOpen,
 } from "lucide-react"
-import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase/supabase"
 import { StatusCard } from "./components/StatusCard"
 import { ExamAnalyticsCard } from "./components/ExamAnalyticsCard"
-import { RecentExamsList } from "./components/RecentExamsList"
-import { useFetchExamDetails } from "@/lib/supabase/exam/context/use-fetch-exam-details"
+import { useFetchStudentsByCourse } from "@/lib/supabase/authentication/context/use-fetch-users"
+import type { UserProfile } from "@/model/user-profile"
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -29,25 +27,44 @@ function scoreColor(score: number) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-const StudentAnalyticsPage = () => {
-  const [userId, setUserId] = useState<string>()
-  const { data: examRecords = [], isLoading } = useFetchExamDetails(userId)
-  const submittedExamRecords = examRecords.filter((exam) => exam.attempted === true)
+const StudentAnalyticsPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const courseId = userProfile?.course?.course_id ?? ""
+  const { students, isLoading } = useFetchStudentsByCourse(courseId)
 
-  // Fetch current user
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
-      }
+  const currentStudent = students.find((s) => s.user_id === userProfile?.user_id) ?? null
+  const examRecords = (currentStudent?.examResults ?? []).map((result) => {
+    const attempted = result.attempted === true
+    const feedbackText = result.feedback?.trim()
+
+    return {
+      id: result.id,
+      title: result.examTitle,
+      date: result.date,
+      instructor: "Instructor",
+      score: result.score,
+      totalItems: result.totalItems,
+      passingRate: result.passingRate ?? 75,
+      passed: result.passed,
+      attempted,
+      topics: result.topicScores.map((topic) => ({
+        topic: topic.topicName,
+        score: topic.score,
+        maxScore: topic.maxScore,
+      })),
+      feedback: feedbackText ? [{ type: "improvement" as const, text: feedbackText }] : [],
+      recommendation: attempted
+        ? result.passed
+          ? "Continue maintaining your performance level. Review challenging topics periodically."
+          : "Focus on reviewing exam topics and practice similar questions before your next attempt."
+        : "No submitted result yet. Your exam result will appear after scanning and submission.",
     }
-    getCurrentUser()
-  }, [])
+  })
 
-  const scoreTrend = submittedExamRecords.slice(0, 3).map((exam, idx) => ({
+  const takenExamRecords = examRecords.filter((exam) => exam.attempted === true)
+
+  const scoreTrend = takenExamRecords.slice(0, 3).map((exam, idx) => ({
     exam: `Exam ${idx + 1}`,
-    score: Math.round((exam.score / exam.totalItems) * 100),
+    score: exam.totalItems > 0 ? Math.round((exam.score / exam.totalItems) * 100) : 0,
   }))
 
   const avg = scoreTrend.length > 0
@@ -58,7 +75,7 @@ const StudentAnalyticsPage = () => {
     ? scoreTrend[scoreTrend.length - 1].score - scoreTrend[0].score
     : 0
 
-  const hasSubmittedResults = submittedExamRecords.length > 0
+  const hasSubmittedResults = takenExamRecords.length > 0
 
   return (
     <ScrollArea className="flex-1">
@@ -94,37 +111,12 @@ const StudentAnalyticsPage = () => {
 
           <StatusCard
             cardName="Exams Taken"
-            value={submittedExamRecords.length}
+            value={takenExamRecords.length}
             icon={BookOpen}
             iconBg="bg-amber-50 dark:bg-amber-950/30"
             iconColor="text-amber-600"
           />
         </div>
-
-        {/* Recent Exams List */}
-        {isLoading ? (
-          <div className="space-y-2">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
-        ) : (
-          <RecentExamsList
-            recentResults={examRecords.map((exam) => ({
-              id: exam.id,
-              title: exam.title,
-              date: exam.date,
-              score: exam.score,
-              total_items: exam.totalItems,
-              percentage: Math.round((exam.score / exam.totalItems) * 100),
-              passed: exam.passed,
-              attempted: exam.attempted,
-              user_id: userId || "",
-              course_id: 0,
-              feedback: "",
-            }))}
-          />
-        )}
 
         {/* Per-exam accordion */}
         <div className="space-y-2">
@@ -140,20 +132,22 @@ const StudentAnalyticsPage = () => {
               <Skeleton key={i} className="h-16" />
             ))}
           </div>
-        ) : examRecords.length === 0 ? (
+        ) : takenExamRecords.length === 0 ? (
           <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground">No exams taken yet</p>
+            <p className="text-sm text-muted-foreground">No completed exams yet. Results will appear after you submit an exam.</p>
           </div>
         ) : (
           <Accordion type="single" collapsible className="space-y-3">
-            {examRecords.map((exam) => {
+            {takenExamRecords.map((exam) => {
               const isAttempted = exam.attempted === true
-              const pct = isAttempted ? Math.round((exam.score / exam.totalItems) * 100) : 0
+              const pct = isAttempted && exam.totalItems > 0
+                ? Math.round((exam.score / exam.totalItems) * 100)
+                : 0
               return (
                 <AccordionItem
                   key={exam.id}
                   value={`exam-${exam.id}`}
-                  className="border rounded-xl overflow-hidden shadow-sm"
+                  className="border rounded-xl overflow-hidden shadow-sm bg-card"
                 >
                   <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-muted/30 transition-colors [&>svg]:shrink-0">
                     <div className="flex flex-1 items-center gap-4 min-w-0">
@@ -170,11 +164,15 @@ const StudentAnalyticsPage = () => {
                       {isAttempted ? (
                         <Badge
                           variant={exam.passed ? "default" : "destructive"}
-                          className={`hidden sm:inline-flex shrink-0 mr-2 ${exam.passed ? "bg-green-500 hover:bg-green-500" : ""}`}
+                          className={`shrink-0 mr-2 ${exam.passed ? "bg-green-500 hover:bg-green-500" : ""}`}
                         >
                           {exam.passed ? "Passed" : "Failed"}
                         </Badge>
-                      ) : null}
+                      ) : (
+                        <Badge variant="outline" className="shrink-0 mr-2 text-muted-foreground">
+                          Pending
+                        </Badge>
+                      )}
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-0 pb-0 pt-0">

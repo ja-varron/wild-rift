@@ -1,5 +1,5 @@
 import { useQueryClient, useQuery } from "@tanstack/react-query"
-import supabase from "../../supabase"
+import { supabase } from "../../supabase"
 import { useEffect } from "react"
 
 export type CourseRoleCount = {
@@ -9,7 +9,7 @@ export type CourseRoleCount = {
 
 const countUserByCourseRole = async (courseId: string) : Promise<CourseRoleCount> => {
   const { data, error } = await supabase
-    .from('user_course')
+    .from('course_enrollment')
     .select(`
       profiles(
         role
@@ -27,9 +27,9 @@ const countUserByCourseRole = async (courseId: string) : Promise<CourseRoleCount
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?.forEach((row: any) => {
-    if (row.profiles?.role === 'student') {
+    if (row.profiles?.role === 'Student') {
       students++
-    } else if (row.profiles?.role === 'instructor') {
+    } else if (row.profiles?.role === 'Instructor') {
       instructors++
     }
   })
@@ -51,7 +51,7 @@ export const useCourseRoleCount = (courseId: string) => {
       .channel(`course-${courseId}-user-changes`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'user_course', filter: `course_id=eq.${courseId}` },
+        { event: '*', schema: 'public', table: 'course_enrollment', filter: `course_id=eq.${courseId}` },
         () => {
 
           queryClient.invalidateQueries({ queryKey: ['courseRoleCount', courseId] })

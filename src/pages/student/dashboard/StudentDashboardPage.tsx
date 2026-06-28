@@ -11,11 +11,11 @@ import { ChartCard } from "./components/ChartCard"
 import { UpcomingExams } from "./components/UpcomingExams"
 import { RecentExams } from "./components/RecentExams"
 import { SummaryStatsCard } from "@/components/custom/SummaryStatsCard"
-import { useFetchProfile } from "@/lib/supabase/authentication/context/use-fetch-profile"
-import { useFetchStudentExams } from "@/lib/supabase/exam/context/use-fetch-student-exams"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, ClipboardCheck, MessageSquare, Target } from "lucide-react"
+import type { UserProfile } from "@/model/user-profile"
+import { useFetchScoreResultsByStudent } from "@/lib/supabase/exam/context/use-fetch-score-results"
 
 const lineChartConfig: ChartConfig = {
   score: {
@@ -24,9 +24,11 @@ const lineChartConfig: ChartConfig = {
   },
 }
 
-const StudentDashboardPage = () => {
-  const { authUser, userProfile, isLoading: isLoadingUser } = useFetchProfile()
-  const { data: exams, isLoading: isLoadingExams } = useFetchStudentExams(authUser?.id)
+const StudentDashboardPage = ({ userProfile }: { userProfile: UserProfile | null | undefined }) => {
+  const studentId = userProfile?.user_id
+  const isLoadingUser = userProfile === undefined
+  const { examResults: exams, isLoading: isLoadingExams } = useFetchScoreResultsByStudent(studentId)
+
   const submittedExams = useMemo(() => (exams || []).filter((exam) => exam.attempted === true), [exams])
 
   const summaryStats = useMemo(() => {
@@ -80,7 +82,7 @@ const StudentDashboardPage = () => {
   const welcomeMessage = useMemo(() => {
     if (isLoadingUser) return "Welcome back! Here's your activity summary."
     if (!userProfile) return "Welcome! Here's your activity summary."
-    return `Welcome back, ${userProfile.getFirstName}! Here's your activity summary.`
+    return `Welcome back, ${userProfile.first_name}! Here's your activity summary.`
   }, [userProfile, isLoadingUser])
 
   const topInsight = useMemo(() => {
@@ -105,9 +107,9 @@ const StudentDashboardPage = () => {
                 {welcomeMessage}
               </p>
             </div>
-            <Badge className="bg-teal-700 text-white hover:bg-teal-700">Progress Snapshot</Badge>
+            <Badge className="bg-[#2DC653] text-white hover:bg-[#2DC653]">Progress Snapshot</Badge>
           </div>
-          <p className="mt-4 text-sm text-teal-800/90">{topInsight}</p>
+          <p className="mt-4 text-sm text-[#2DC653]">{topInsight}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -129,7 +131,7 @@ const StudentDashboardPage = () => {
             ) : (
               <ChartContainer config={lineChartConfig} className="h-48 w-full sm:h-60 lg:h-72">
                 <LineChart data={scoreTrend} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis
                     dataKey="exam"
                     tick={{ fontSize: 11 }}
@@ -144,13 +146,13 @@ const StudentDashboardPage = () => {
                     axisLine={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                  <ReferenceLine y={75} label={{ value: "Passing", position: 'insideTopLeft', fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                  <ReferenceLine y={75} label={{ value: "Passing", position: 'insideTopLeft', fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} stroke="#E5E7EB" strokeDasharray="3 3" />
                   <Line
                     type="monotone"
                     dataKey="score"
-                    stroke="#0f766e"
+                    stroke="#2DC653"
                     strokeWidth={2.5}
-                    dot={{ r: 4, fill: "#0f766e", strokeWidth: 0 }}
+                    dot={{ r: 4, fill: "#2DC653", strokeWidth: 0 }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>

@@ -1,7 +1,10 @@
 create table public.exam_papers (
-  exam_id uuid not null default gen_random_uuid (),
-  examination_id_number text not null,
-  actual_answer json null,
+  paper_id uuid not null default gen_random_uuid (),
+  exam_id uuid not null,
+  student_id uuid not null,
+  actual_answers jsonb null,
+  created_at timestamp with time zone not null default now(),
+  constraint exam_papers_pkey primary key (paper_id),
   constraint exam_papers_exam_id_fkey foreign KEY (exam_id) references exams (exam_id) on update CASCADE on delete CASCADE,
-  constraint exam_papers_examination_id_number_fkey foreign KEY (examination_id_number) references user_course (examinee_id_number) on update CASCADE on delete CASCADE
+  constraint exam_papers_student_id_fkey foreign KEY (student_id) references profiles (user_id) on update CASCADE on delete CASCADE
 ) TABLESPACE pg_default;

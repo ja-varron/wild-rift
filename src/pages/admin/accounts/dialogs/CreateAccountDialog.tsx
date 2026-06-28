@@ -12,7 +12,6 @@ type AccountForm = {
   email: string
   password: string
   role: "Student" | "Instructor" | "Admin"
-  prcExamType: string
 }
 
 type CreateAccountDialogProps = {
@@ -33,27 +32,20 @@ const CreateAccountDialog = ({
   editingId,
   form,
   setForm,
-  licensureExams,
   handleSave,
   openCreate,
   isSaving,
 }: CreateAccountDialogProps) => {
-  const examOptions =
-    form.prcExamType && !licensureExams.includes(form.prcExamType)
-      ? [form.prcExamType, ...licensureExams]
-      : licensureExams
-
   const canSave =
     !!form.firstName.trim() &&
     !!form.lastName.trim() &&
     !!form.email.trim() &&
-    !!form.prcExamType.trim() &&
     (editingId ? true : true) // For new accounts, password is auto-generated, so always true
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5" onClick={openCreate}>
+        <Button size="sm" className="gap-1.5 bg-[#2DC653] hover:bg-[#25a244] text-white" onClick={openCreate}>
           <IconPlus className="size-4" />
           Create Account
         </Button>
@@ -137,29 +129,6 @@ const CreateAccountDialog = ({
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-1.5">
-              <Label>PRC Licensure Exam *</Label>
-              <Select
-                value={form.prcExamType}
-                onValueChange={(v) => setForm({ ...form, prcExamType: v })}
-                disabled={isSaving || examOptions.length === 0}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select PRC exam" />
-                </SelectTrigger>
-                <SelectContent>
-                  {examOptions.length === 0 ? (
-                    <SelectItem value="__none" disabled>
-                      No exams available
-                    </SelectItem>
-                  ) : null}
-                  {examOptions.map((exam) => (
-                    <SelectItem key={exam} value={exam}>{exam}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </div>
 
@@ -167,7 +136,7 @@ const CreateAccountDialog = ({
           <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!canSave || isSaving}>
+          <Button onClick={handleSave} disabled={!canSave || isSaving} className="bg-[#2DC653] hover:bg-[#25a244] text-white">
             {isSaving && <IconLoader2 className="size-4 mr-2 animate-spin" />}
             {isSaving ? "Saving..." : editingId ? "Save Changes" : "Create Account"}
           </Button>

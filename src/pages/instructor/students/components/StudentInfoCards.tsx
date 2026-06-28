@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { Mail, Phone, Hash } from "lucide-react"
+import { Mail } from "lucide-react"
 import type { Student } from "../types"
 
 interface StudentInfoCardsProps {
@@ -9,8 +9,8 @@ interface StudentInfoCardsProps {
 const StudentInfoCards = ({ student }: StudentInfoCardsProps) => {
   const items = [
     { label: "Email", value: student.email, icon: Mail, truncate: true },
-    { label: "Mobile", value: student.mobileNumber, icon: Phone, truncate: false },
-    { label: "Enrolled Since", value: student.dateAdded, icon: Hash, truncate: false },
+    // { label: "Mobile", value: student.mobileNumber, icon: Phone, truncate: false },
+    // { label: "Enrolled Since", value: student.dateAdded, icon: Hash, truncate: false },
   ]
 
   return (

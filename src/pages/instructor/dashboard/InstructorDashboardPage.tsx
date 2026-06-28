@@ -21,12 +21,42 @@ import {
 } from "lucide-react"
 import { SummaryStatsCard } from "@/components/custom/SummaryStatsCard"
 import { supabase } from "@/lib/supabase/supabase"
-import { useFetchInstructorExams } from "@/lib/supabase/exam/context/use-fetch-instructor-exams"
 import { useEffect, useMemo, useState } from "react"
-import type { Exam } from "../exams/types"
+
+type DashboardStudentResult = {
+  studentId: string
+  score: number
+  totalItems: number
+}
+
+type DashboardExam = {
+  id: string
+  title: string
+  date: string
+  location?: string
+  studentsEnrolled: number
+  topics: { name: string }[]
+  status: "Draft" | "Active" | "Completed"
+  studentResults: DashboardStudentResult[]
+}
+
+type ExamRow = {
+  exam_id?: string | null
+  exam_title?: string | null
+  exam_date?: string | null
+  topics?: unknown
+  status?: string | null
+  location?: string | null
+}
+
+type ScoreResultRow = {
+  exam_id?: string | null
+  student_id?: string | null
+  scores?: unknown
+}
 
 type DashboardUpcomingExam = {
-  id: number
+  id: string
   title: string
   date: string
   room: string
@@ -36,7 +66,7 @@ type DashboardUpcomingExam = {
 }
 
 type DashboardRecentExam = {
-  id: number
+  id: string
   title: string
   date: string
   students: number
@@ -52,7 +82,7 @@ const parseExamDateValue = (value: string): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-const calculateAverageScore = (exam: Pick<Exam, "studentResults">): number => {
+const calculateAverageScore = (exam: Pick<DashboardExam, "studentResults">): number => {
   const percentages = exam.studentResults
     .map((result) => {
       const totalItems = Number(result.totalItems)
@@ -121,10 +151,124 @@ const SkeletonLoader = () => (
   </div>
 )
 
+const normalizeTopics = (raw: unknown): { name: string }[] => {
+  const fromValues = (values: unknown[]): { name: string }[] =>
+    values
+      .map((item) => {
+        if (typeof item === "string") {
+          const name = item.trim()
+          return name ? { name } : null
+        }
+        if (item && typeof item === "object") {
+          const value = item as { name?: unknown; title?: unknown; topic?: unknown }
+          const nameCandidate = value.name ?? value.title ?? value.topic
+          const name = typeof nameCandidate === "string" ? nameCandidate.trim() : ""
+          return name ? { name } : null
+        }
+        const fallback = String(item ?? "").trim()
+        return fallback ? { name: fallback } : null
+      })
+      .filter((entry): entry is { name: string } => !!entry)
+      .map((entry, idx) => ({ name: entry.name || `Topic ${idx + 1}` }))
+
+  if (Array.isArray(raw)) {
+    return fromValues(raw)
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim()
+    if (!trimmed) return []
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) return fromValues(parsed)
+    } catch {
+      return trimmed
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((name) => ({ name }))
+    }
+  }
+
+  return []
+}
+
+type ScorePayload = {
+  totalScore?: number
+  totalItems?: number
+  topicScores?: Array<{ score?: number; maxScore?: number; total?: number }>
+}
+
+const parseScorePayload = (value: unknown): ScorePayload => {
+  if (!value) return {}
+  if (Array.isArray(value)) return { topicScores: value as ScorePayload["topicScores"] }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) return { topicScores: parsed as ScorePayload["topicScores"] }
+      return (parsed ?? {}) as ScorePayload
+    } catch {
+      return {}
+    }
+  }
+  return value as ScorePayload
+}
+
+const resolveScoreTotals = (payload: ScorePayload): { score: number; totalItems: number } => {
+  const score = Number(payload.totalScore)
+  const totalItems = Number(payload.totalItems)
+  if (Number.isFinite(score) && Number.isFinite(totalItems) && totalItems > 0) {
+    return { score, totalItems }
+  }
+
+  const topicScores = payload.topicScores ?? []
+  if (topicScores.length === 0) return { score: 0, totalItems: 0 }
+
+  const totals = topicScores.reduce<{ score: number; totalItems: number }>(
+    (acc, entry) => {
+      const entryScore = Number(entry.score)
+      const entryMax = Number(entry.total ?? entry.maxScore)
+      acc.score += Number.isFinite(entryScore) ? entryScore : 0
+      acc.totalItems += Number.isFinite(entryMax) ? entryMax : 0
+      return acc
+    },
+    { score: 0, totalItems: 0 },
+  )
+
+  return totals
+}
+
+const deriveExamStatus = (status: string | null | undefined, examDate?: string | null) => {
+  if (status === "Draft" || status === "Active" || status === "Completed") {
+    return status
+  }
+
+  if (!examDate) return "Draft"
+  const parsed = parseExamDateValue(examDate)
+  if (!parsed) return "Draft"
+  const today = getDayStart(new Date())
+  const examDay = getDayStart(parsed)
+  if (examDay.getTime() === today.getTime()) return "Active"
+  if (examDay.getTime() < today.getTime()) return "Completed"
+  return "Draft"
+}
+
+const formatExamDateLabel = (value: string): string => {
+  const parsed = parseExamDateValue(value)
+  if (!parsed) return value || "TBA"
+  return parsed.toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const InstructorDashboardPage = () => {
   const [instructorId, setInstructorId] = useState<string>()
+  const [exams, setExams] = useState<DashboardExam[]>([])
+  const [examsLoading, setExamsLoading] = useState(false)
 
   // Fetch instructor ID from auth
   useEffect(() => {
@@ -137,7 +281,104 @@ const InstructorDashboardPage = () => {
     getInstructor()
   }, [])
 
-  const { data: exams = [], isLoading: examsLoading } = useFetchInstructorExams(instructorId)
+  useEffect(() => {
+    let active = true
+
+    const loadExams = async () => {
+      if (!instructorId) {
+        if (active) {
+          setExams([])
+          setExamsLoading(false)
+        }
+        return
+      }
+
+      if (active) setExamsLoading(true)
+
+      try {
+        const { data: examRows, error: examError } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("created_by", instructorId)
+
+        if (examError) throw examError
+
+        const rows = (examRows ?? []) as ExamRow[]
+        const examIds = rows
+          .map((row) => row.exam_id)
+          .filter((id): id is string => Boolean(id))
+
+        let scoreRows: ScoreResultRow[] = []
+        if (examIds.length > 0) {
+          const { data, error } = await supabase
+            .from("score_results")
+            .select("exam_id, student_id, scores")
+            .in("exam_id", examIds)
+
+          if (error) {
+            console.error("Error fetching score results:", error)
+          } else {
+            scoreRows = (data ?? []) as ScoreResultRow[]
+          }
+        }
+
+        const scoresByExam = new Map<
+          string,
+          { results: DashboardStudentResult[]; studentIds: Set<string> }
+        >()
+
+        for (const scoreRow of scoreRows) {
+          const examId = scoreRow.exam_id
+          const studentId = scoreRow.student_id
+          if (!examId || !studentId) continue
+
+          const payload = parseScorePayload(scoreRow.scores)
+          const totals = resolveScoreTotals(payload)
+          const entry: DashboardStudentResult = {
+            studentId,
+            score: totals.score,
+            totalItems: totals.totalItems,
+          }
+
+          const bucket = scoresByExam.get(examId) ?? {
+            results: [],
+            studentIds: new Set<string>(),
+          }
+          bucket.results.push(entry)
+          bucket.studentIds.add(studentId)
+          scoresByExam.set(examId, bucket)
+        }
+
+        const mappedExams: DashboardExam[] = rows.map((row) => {
+          const examId = row.exam_id ?? ""
+          const scoreBucket = scoresByExam.get(examId)
+          return {
+            id: examId,
+            title: row.exam_title?.trim() || "Untitled Exam",
+            date: row.exam_date || "",
+            location: row.location ?? undefined,
+            studentsEnrolled: scoreBucket?.studentIds.size ?? 0,
+            topics: normalizeTopics(row.topics),
+            status: deriveExamStatus(row.status, row.exam_date),
+            studentResults: scoreBucket?.results ?? [],
+          }
+        })
+
+        if (active) setExams(mappedExams)
+      } catch (error) {
+        console.error("Error loading instructor exams:", error)
+        if (active) setExams([])
+      } finally {
+        if (active) setExamsLoading(false)
+      }
+    }
+
+    void loadExams()
+
+    return () => {
+      active = false
+    }
+  }, [instructorId])
 
   const stats = useMemo(() => {
     const totalExams = exams.length
@@ -328,7 +569,7 @@ const InstructorDashboardPage = () => {
                     <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="size-3.5" />
-                        {exam.date}
+                        {formatExamDateLabel(exam.date)}
                       </div>
                       <div className="flex items-center gap-1">
                         <MapPin className="size-3.5" />
@@ -400,7 +641,7 @@ const InstructorDashboardPage = () => {
                               {exam.title}
                             </h3>
                             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              <span>{exam.date}</span>
+                              <span>{formatExamDateLabel(exam.date)}</span>
                               <span>•</span>
                               <span>{exam.students} students</span>
                             </div>

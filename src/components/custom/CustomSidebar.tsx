@@ -77,8 +77,8 @@ const CustomSidebar = ({ navItems }: NavigationItemProps) => {
 
       <SidebarFooter className="p-3">
         <NavigationUser user={{
-          name: userProfile?.fullName ?? (isLoading ? "Loading..." : "User"),
-          email: userProfile?.getEmailAddress ?? "...",
+          name: userProfile?.first_name ?? (isLoading ? "Loading..." : "User"),
+          email: userProfile?.email ?? "...",
         }} />
       </SidebarFooter>
     </Sidebar>

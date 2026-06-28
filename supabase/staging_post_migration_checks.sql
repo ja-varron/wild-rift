@@ -2,6 +2,7 @@
 -- 1) create_exams_table.sql
 -- 2) create_prc_licensure_exams_table.sql
 -- 3) add_exam_location_column.sql
+-- 4) create_answer_keys_table.sql
 
 -- ==========================================================================
 -- 1. Required tables
@@ -9,7 +10,7 @@
 select table_name
 from information_schema.tables
 where table_schema = 'public'
-  and table_name in ('exams', 'exam_results', 'scanned_papers', 'prc_licensure_exams')
+  and table_name in ('answer_keys', 'exams', 'exam_results', 'scanned_papers', 'prc_licensure_exams')
 order by table_name;
 
 -- ==========================================================================
@@ -36,6 +37,8 @@ select schemaname, tablename, indexname
 from pg_indexes
 where schemaname = 'public'
   and indexname in (
+    'idx_answer_keys_exam_id',
+    'idx_answer_keys_exam_current_unique',
     'idx_exams_instructor_id',
     'idx_exams_course_id',
     'idx_exam_results_exam_id',
@@ -54,7 +57,7 @@ select
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public'
-  and c.relname in ('exams', 'exam_results', 'scanned_papers', 'prc_licensure_exams')
+  and c.relname in ('answer_keys', 'exams', 'exam_results', 'scanned_papers', 'prc_licensure_exams')
 order by c.relname;
 
 -- ==========================================================================
@@ -63,10 +66,11 @@ order by c.relname;
 select schemaname, tablename, policyname, cmd
 from pg_policies
 where schemaname = 'public'
-  and tablename in ('exams', 'exam_results', 'scanned_papers', 'prc_licensure_exams')
+  and tablename in ('answer_keys', 'exams', 'exam_results', 'scanned_papers', 'prc_licensure_exams')
 order by tablename, policyname;
 
 -- Expected policy names:
+-- answer_keys: AnswerKeys: instructor select|insert|update|delete
 -- exams: Exams: instructor select|insert|update|delete
 -- exam_results: ExamResults: select own_or_instructor|instructor insert|instructor update|instructor delete
 -- scanned_papers: ScannedPapers: select own_or_instructor|instructor insert|instructor update|instructor delete
@@ -90,6 +94,7 @@ order by exam_name;
 select conname, conrelid::regclass as table_name, pg_get_constraintdef(oid) as definition
 from pg_constraint
 where conrelid in (
+  'public.answer_keys'::regclass,
   'public.exams'::regclass,
   'public.exam_results'::regclass,
   'public.scanned_papers'::regclass,
