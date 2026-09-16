@@ -11,6 +11,7 @@ const Header = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
           <h1 className="font-semibold text-white text-xl">Tuon</h1>
         </div>
 
+        {/* TODO: Integrate signout functionality */}
         {/* Authenticated header */}
         {isAuthenticated ? (
           <div className="flex items-center gap-5">

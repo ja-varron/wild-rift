@@ -1,17 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
 import AppRouter from '@/Router';
-
-const queryClient = new QueryClient();
+import { AuthProvider } from './services/authentication/AuthProvider';
 
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppRouter />
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
+	return (
+		<AuthProvider>
+			<AppRouter />
+		</AuthProvider>
+	)
 }
 
 export default App;
