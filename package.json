@@ -29,7 +29,7 @@
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.1.2",
     "react-resizable-panels": "^4.6.5",
-    "react-router-dom": "^7.13.0",
+    "react-router-dom": "^7.18.3",
     "recharts": "^2.15.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",

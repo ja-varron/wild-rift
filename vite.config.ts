@@ -5,14 +5,20 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: {
-    host: true,
-  },
-
   plugins: [
     react(),
     tailwindcss()
   ],
+
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+
   build: {
     chunkSizeWarningLimit: 700,
     rollupOptions: {
@@ -32,6 +38,7 @@ export default defineConfig({
       },
     },
   },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
